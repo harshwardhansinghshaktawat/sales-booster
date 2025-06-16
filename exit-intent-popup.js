@@ -10,6 +10,7 @@ class ExitIntentPopup extends HTMLElement {
         this.popupClosed = false;
         this.lastTrigger = 0;
         this.lastScrollTop = 0;
+        this.eventListenersAttached = false;
         
         // Default settings with maximum editability
         this.settings = {
@@ -93,7 +94,7 @@ class ExitIntentPopup extends HTMLElement {
                     const newConfig = JSON.parse(newValue);
                     // Merge new config with existing settings
                     Object.assign(this.settings, newConfig);
-                    console.log('Updated settings with new config:', this.settings); // Debug config update
+                    console.log('Config updated:', this.settings.ctaButtonLink);
                     this.updatePopupContent();
                 } catch (e) {
                     console.warn('Invalid JSON in config attribute:', e);
@@ -403,7 +404,7 @@ class ExitIntentPopup extends HTMLElement {
 
             <div class="exit-popup-overlay" id="exitPopupOverlay">
                 <div class="exit-popup">
-                    <button class="close-btn" id="closeBtn">×</button>
+                    <button class="close-btn" id="closeBtn">&times;</button>
                     
                     <div class="popup-icon">${this.settings.popupIcon}</div>
                     
@@ -426,72 +427,130 @@ class ExitIntentPopup extends HTMLElement {
     }
 
     updatePopupContent() {
+        // Store current popup state
+        const wasShown = this.popupShown;
+        
         // Re-render the entire popup with new settings
         this.renderPopup();
-        this.setupEventListeners();
+        
+        // Re-attach event listeners with a small delay to ensure DOM is ready
+        setTimeout(() => {
+            this.setupEventListeners();
+        }, 10);
+        
+        // Restore popup state if it was shown
+        if (wasShown) {
+            const overlay = this.querySelector('#exitPopupOverlay');
+            if (overlay) {
+                overlay.classList.add('show');
+            }
+        }
     }
 
-    setupEventListeners() {
+    removeEventListeners() {
+        // Remove existing event listeners to prevent duplicates
         const overlay = this.querySelector('#exitPopupOverlay');
         const closeBtn = this.querySelector('#closeBtn');
         const ctaBtn = this.querySelector('#ctaBtn');
         const noThanksBtn = this.querySelector('#noThanksBtn');
 
-        // Enhanced event binding with error handling and debugging
+        if (overlay) {
+            overlay.removeEventListener('click', this.overlayClickHandler);
+        }
         if (closeBtn) {
-            closeBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Close button clicked'); // Debug
+            closeBtn.removeEventListener('click', this.closeBtnHandler);
+        }
+        if (ctaBtn) {
+            ctaBtn.removeEventListener('click', this.ctaBtnHandler);
+        }
+        if (noThanksBtn) {
+            noThanksBtn.removeEventListener('click', this.noThanksBtnHandler);
+        }
+    }
+
+    setupEventListeners() {
+        console.log('Setting up event listeners...');
+        
+        // Remove any existing listeners first
+        this.removeEventListeners();
+        
+        const overlay = this.querySelector('#exitPopupOverlay');
+        const closeBtn = this.querySelector('#closeBtn');
+        const ctaBtn = this.querySelector('#ctaBtn');
+        const noThanksBtn = this.querySelector('#noThanksBtn');
+
+        // Create bound handler functions to allow proper removal
+        this.overlayClickHandler = (e) => {
+            if (e.target === overlay) {
+                console.log('Overlay clicked - closing popup');
                 this.closePopup();
-            });
+            }
+        };
+
+        this.closeBtnHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Close button clicked');
+            this.closePopup();
+        };
+
+        this.ctaBtnHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('CTA button clicked, link:', this.settings.ctaButtonLink);
+            this.claimOffer();
+        };
+
+        this.noThanksBtnHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('No Thanks button clicked');
+            this.closePopup();
+        };
+
+        // Attach event listeners with error handling
+        if (closeBtn) {
+            closeBtn.addEventListener('click', this.closeBtnHandler);
+            console.log('Close button listener attached');
         } else {
             console.error('Close button not found');
         }
 
         if (ctaBtn) {
-            ctaBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('CTA button clicked, link:', this.settings.ctaButtonLink); // Debug
-                this.claimOffer();
-            });
+            ctaBtn.addEventListener('click', this.ctaBtnHandler);
+            console.log('CTA button listener attached');
         } else {
             console.error('CTA button not found');
         }
 
         if (noThanksBtn) {
-            noThanksBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('No Thanks button clicked'); // Debug
-                this.closePopup();
-            });
+            noThanksBtn.addEventListener('click', this.noThanksBtnHandler);
+            console.log('No Thanks button listener attached');
         } else {
             console.error('No Thanks button not found');
         }
 
         // Close when clicking outside
         if (overlay) {
-            overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) {
-                    console.log('Overlay clicked - closing popup'); // Debug
-                    this.closePopup();
-                }
-            });
+            overlay.addEventListener('click', this.overlayClickHandler);
+            console.log('Overlay listener attached');
         }
 
-        // Keyboard support
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape' && this.popupShown) {
-                console.log('Escape key pressed - closing popup'); // Debug
-                this.closePopup();
-            }
-        };
-        
-        // Clean up previous listener
-        document.removeEventListener('keydown', handleKeyDown);
-        document.addEventListener('keydown', handleKeyDown);
+        // Keyboard support - only attach once
+        if (!this.keydownHandlerAttached) {
+            this.handleKeyDown = (e) => {
+                if (e.key === 'Escape' && this.popupShown) {
+                    console.log('Escape key pressed - closing popup');
+                    this.closePopup();
+                }
+            };
+            
+            document.addEventListener('keydown', this.handleKeyDown);
+            this.keydownHandlerAttached = true;
+        }
+
+        this.eventListenersAttached = true;
+        console.log('All event listeners attached successfully');
     }
 
     initializeExitIntent() {
@@ -568,6 +627,7 @@ class ExitIntentPopup extends HTMLElement {
             if (overlay) {
                 overlay.classList.add('show');
                 this.popupShown = true;
+                console.log('Popup shown');
                 
                 // Dispatch custom event for tracking
                 this.dispatchEvent(new CustomEvent('popup-shown', {
@@ -589,11 +649,13 @@ class ExitIntentPopup extends HTMLElement {
     }
 
     closePopup() {
+        console.log('Closing popup...');
         const overlay = this.querySelector('#exitPopupOverlay');
         if (overlay) {
             overlay.classList.remove('show');
-            this.popupShown = false; // Reset popupShown to allow re-triggering
+            this.popupShown = false;
             this.popupClosed = true;
+            console.log('Popup closed successfully');
             
             // Dispatch custom event
             this.dispatchEvent(new CustomEvent('popup-closed', {
@@ -608,21 +670,20 @@ class ExitIntentPopup extends HTMLElement {
             if (typeof gtag !== 'undefined') {
                 gtag('event', 'exit_intent_popup_closed');
             }
-        } else {
-            console.error('Overlay not found in closePopup');
         }
     }
 
     claimOffer() {
-        console.log('Claim offer triggered, ctaButtonLink:', this.settings.ctaButtonLink); // Debug
-
+        console.log('Claiming offer with link:', this.settings.ctaButtonLink);
+        
         // Dispatch custom event with coupon code
         this.dispatchEvent(new CustomEvent('offer-claimed', {
             bubbles: true,
             detail: { 
                 couponCode: this.settings.couponCode,
                 timestamp: Date.now(),
-                settings: this.settings
+                settings: this.settings,
+                link: this.settings.ctaButtonLink
             }
         }));
 
@@ -633,31 +694,51 @@ class ExitIntentPopup extends HTMLElement {
             });
         }
 
-        // Simplified redirect handling
+        // Enhanced redirect handling
         if (this.settings.ctaButtonLink && this.settings.ctaButtonLink.trim() !== '') {
-            let url = this.settings.ctaButtonLink.trim();
-            console.log('Attempting to redirect to:', url); // Debug
-
-            // Basic URL validation
             try {
-                // Ensure URL has protocol
+                let url = this.settings.ctaButtonLink.trim();
+                
+                // Smart URL handling
                 if (!url.match(/^https?:\/\//)) {
-                    url = 'https://' + url;
+                    if (url.includes('.') || url.startsWith('www.')) {
+                        url = 'https://' + url;
+                    } else if (url.startsWith('/')) {
+                        url = window.location.origin + url;
+                    } else {
+                        url = window.location.origin + '/' + url;
+                    }
                 }
-                // Validate URL
-                new URL(url); // Throws if invalid
-                window.location.href = url;
+                
+                console.log('Redirecting to:', url);
+                
+                // Close popup first
+                this.closePopup();
+                
+                // Add a small delay to ensure popup closes smoothly
+                setTimeout(() => {
+                    // Try to open in same window first, fallback to new window if blocked
+                    try {
+                        window.location.href = url;
+                    } catch (error) {
+                        console.log('Direct redirect failed, trying window.open:', error);
+                        const newWindow = window.open(url, '_blank');
+                        if (!newWindow) {
+                            alert(`Please allow popups for this site. Your discount code is: ${this.settings.couponCode}`);
+                        }
+                    }
+                }, 300);
+                
             } catch (error) {
-                console.error('Invalid redirect URL:', url, error);
-                alert(`Discount code ${this.settings.couponCode} has been applied! Please manually navigate to ${url}.`);
+                console.error('Error with redirect URL:', error);
+                this.closePopup();
+                alert(`Discount code ${this.settings.couponCode} has been applied! Please manually navigate to complete your purchase.`);
             }
         } else {
-            console.warn('No CTA button link provided');
-            alert(`Discount code ${this.settings.couponCode} has been applied!`);
+            console.log('No link provided, showing coupon code alert');
+            this.closePopup();
+            alert(`Your discount code is: ${this.settings.couponCode}`);
         }
-
-        // Close popup after handling redirect
-        this.closePopup();
     }
 
     // Public API methods
@@ -692,8 +773,12 @@ class ExitIntentPopup extends HTMLElement {
     get ctaButtonLink() { return this.settings.ctaButtonLink; }
 
     disconnectedCallback() {
-        // Clean up event listeners if needed
-        console.log('Exit intent popup disconnected');
+        // Clean up event listeners
+        this.removeEventListeners();
+        if (this.keydownHandlerAttached) {
+            document.removeEventListener('keydown', this.handleKeyDown);
+        }
+        console.log('Exit intent popup disconnected and cleaned up');
     }
 }
 
