@@ -1,5 +1,6 @@
-// File name: exit-intent-popup.js
+// File name: exit-intent-popup-blocks.js
 // Custom Element Tag: <exit-intent-popup></exit-intent-popup>
+// Designed for Wix Blocks integration with JSON configuration
 
 class ExitIntentPopup extends HTMLElement {
     constructor() {
@@ -9,9 +10,75 @@ class ExitIntentPopup extends HTMLElement {
         this.popupClosed = false;
         this.lastTrigger = 0;
         this.lastScrollTop = 0;
+        
+        // Initialize with default configuration
+        this.config = this.getDefaultConfig();
+        this.isInitialized = false;
+    }
+
+    static get observedAttributes() {
+        return ['config'];
     }
 
     connectedCallback() {
+        // Parse initial config if provided
+        const configAttr = this.getAttribute('config');
+        if (configAttr) {
+            this.updateConfigFromJSON(configAttr);
+        }
+
+        this.render();
+        this.setupEventListeners();
+        this.initializeExitIntent();
+        this.isInitialized = true;
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        if (name === 'config' && oldValue !== newValue && this.isInitialized) {
+            this.updateConfigFromJSON(newValue);
+            this.updatePopupContent();
+            this.updatePopupStyles();
+        }
+    }
+
+    updateConfigFromJSON(jsonString) {
+        try {
+            if (jsonString && jsonString.trim() !== '') {
+                const parsedConfig = JSON.parse(jsonString);
+                // Merge with defaults to ensure all properties exist
+                this.config = { ...this.getDefaultConfig(), ...parsedConfig };
+            } else {
+                this.config = this.getDefaultConfig();
+            }
+        } catch (e) {
+            console.error('Error parsing exit-intent popup config JSON:', e);
+            console.error('Invalid JSON:', jsonString);
+            this.config = this.getDefaultConfig();
+        }
+    }
+
+    getDefaultConfig() {
+        return {
+            discount: "25% OFF",
+            couponCode: "SAVE25",
+            ctaText: "Claim My Discount",
+            redirectUrl: "",
+            urgencyTime: "10 minutes",
+            popupTitle: "Wait! Don't Miss Out!",
+            popupSubtitle: "You're about to leave, but we have an exclusive offer just for you!",
+            backgroundColor: "#667eea",
+            buttonColor: "#00d2ff",
+            popupDescription: "Use code {couponCode} and get instant {discount} discount on your entire order. This exclusive offer is only available for the next few minutes!",
+            popupIcon: "🎉"
+        };
+    }
+
+    render() {
+        // Process description template
+        const processedDescription = this.config.popupDescription
+            .replace('{couponCode}', this.config.couponCode)
+            .replace('{discount}', this.config.discount);
+
         this.innerHTML = `
             <style>
                 :host {
@@ -61,7 +128,7 @@ class ExitIntentPopup extends HTMLElement {
                 }
 
                 .exit-popup {
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: linear-gradient(135deg, ${this.config.backgroundColor} 0%, ${this.config.backgroundColor}dd 100%);
                     border-radius: 20px;
                     padding: 40px 30px;
                     max-width: 500px;
@@ -175,7 +242,7 @@ class ExitIntentPopup extends HTMLElement {
                 }
 
                 .cta-button {
-                    background: linear-gradient(45deg, #00d2ff, #3a7bd5);
+                    background: linear-gradient(45deg, ${this.config.buttonColor}, ${this.config.buttonColor}dd);
                     border: none;
                     padding: 18px 40px;
                     border-radius: 50px;
@@ -282,30 +349,79 @@ class ExitIntentPopup extends HTMLElement {
                 <div class="exit-popup">
                     <button class="close-btn" id="closeBtn">&times;</button>
                     
-                    <div class="popup-icon">🎉</div>
+                    <div class="popup-icon">${this.config.popupIcon}</div>
                     
-                    <h2 class="popup-title">Wait! Don't Miss Out!</h2>
+                    <h2 class="popup-title">${this.config.popupTitle}</h2>
                     
-                    <p class="popup-subtitle">You're about to leave, but we have an exclusive offer just for you!</p>
+                    <p class="popup-subtitle">${this.config.popupSubtitle}</p>
                     
-                    <div class="discount-badge">${this.getAttribute('discount') || '25% OFF'}</div>
+                    <div class="discount-badge">${this.config.discount}</div>
                     
-                    <p class="popup-description">
-                        Use code <strong>${this.getAttribute('coupon-code') || 'SAVE25'}</strong> and get instant ${this.getAttribute('discount') || '25%'} discount on your entire order. 
-                        This exclusive offer is only available for the next few minutes!
-                    </p>
+                    <p class="popup-description">${processedDescription}</p>
                     
-                    <button class="cta-button" id="ctaBtn">${this.getAttribute('cta-text') || 'Claim My Discount'}</button>
+                    <button class="cta-button" id="ctaBtn">${this.config.ctaText}</button>
                     <br>
                     <button class="no-thanks" id="noThanksBtn">No thanks, I'll pass</button>
                     
-                    <p class="urgency-text">⏰ Limited time offer - expires in ${this.getAttribute('urgency-time') || '10 minutes'}!</p>
+                    <p class="urgency-text">⏰ Limited time offer - expires in ${this.config.urgencyTime}!</p>
                 </div>
             </div>
         `;
+    }
 
-        this.setupEventListeners();
-        this.initializeExitIntent();
+    updatePopupContent() {
+        // Update text content elements
+        const titleElement = this.querySelector('.popup-title');
+        const subtitleElement = this.querySelector('.popup-subtitle');
+        const discountBadge = this.querySelector('.discount-badge');
+        const description = this.querySelector('.popup-description');
+        const ctaButton = this.querySelector('#ctaBtn');
+        const urgencyText = this.querySelector('.urgency-text');
+        const iconElement = this.querySelector('.popup-icon');
+
+        if (titleElement) {
+            titleElement.textContent = this.config.popupTitle;
+        }
+
+        if (subtitleElement) {
+            subtitleElement.textContent = this.config.popupSubtitle;
+        }
+
+        if (discountBadge) {
+            discountBadge.textContent = this.config.discount;
+        }
+
+        if (description) {
+            const processedDescription = this.config.popupDescription
+                .replace('{couponCode}', this.config.couponCode)
+                .replace('{discount}', this.config.discount);
+            description.innerHTML = processedDescription.replace(this.config.couponCode, `<strong>${this.config.couponCode}</strong>`);
+        }
+
+        if (ctaButton) {
+            ctaButton.textContent = this.config.ctaText;
+        }
+
+        if (urgencyText) {
+            urgencyText.innerHTML = `⏰ Limited time offer - expires in ${this.config.urgencyTime}!`;
+        }
+
+        if (iconElement) {
+            iconElement.textContent = this.config.popupIcon;
+        }
+    }
+
+    updatePopupStyles() {
+        const popup = this.querySelector('.exit-popup');
+        const ctaButton = this.querySelector('.cta-button');
+        
+        if (popup) {
+            popup.style.background = `linear-gradient(135deg, ${this.config.backgroundColor} 0%, ${this.config.backgroundColor}dd 100%)`;
+        }
+        
+        if (ctaButton) {
+            ctaButton.style.background = `linear-gradient(45deg, ${this.config.buttonColor}, ${this.config.buttonColor}dd)`;
+        }
     }
 
     setupEventListeners() {
@@ -314,16 +430,26 @@ class ExitIntentPopup extends HTMLElement {
         const ctaBtn = this.querySelector('#ctaBtn');
         const noThanksBtn = this.querySelector('#noThanksBtn');
 
-        closeBtn.addEventListener('click', () => this.closePopup());
-        ctaBtn.addEventListener('click', () => this.claimOffer());
-        noThanksBtn.addEventListener('click', () => this.closePopup());
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.closePopup());
+        }
+
+        if (ctaBtn) {
+            ctaBtn.addEventListener('click', () => this.claimOffer());
+        }
+
+        if (noThanksBtn) {
+            noThanksBtn.addEventListener('click', () => this.closePopup());
+        }
 
         // Close when clicking outside
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-                this.closePopup();
-            }
-        });
+        if (overlay) {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    this.closePopup();
+                }
+            });
+        }
 
         // Keyboard support
         document.addEventListener('keydown', (e) => {
@@ -379,147 +505,141 @@ class ExitIntentPopup extends HTMLElement {
         const now = Date.now();
         if (now - this.lastTrigger > 2000 && !this.popupShown && !this.popupClosed) { // 2 second throttle
             this.lastTrigger = now;
-            this.querySelector('#exitPopupOverlay').classList.add('show');
-            this.popupShown = true;
-            
-            // Dispatch custom event for tracking
-            this.dispatchEvent(new CustomEvent('popup-shown', {
-                bubbles: true,
-                detail: { timestamp: now }
-            }));
+            const overlay = this.querySelector('#exitPopupOverlay');
+            if (overlay) {
+                overlay.classList.add('show');
+                this.popupShown = true;
+                
+                // Dispatch custom event for tracking
+                this.dispatchEvent(new CustomEvent('popup-shown', {
+                    bubbles: true,
+                    detail: { 
+                        timestamp: now,
+                        config: this.config 
+                    }
+                }));
 
-            // Track with Google Analytics if available
-            if (typeof gtag !== 'undefined') {
-                gtag('event', 'exit_intent_popup_shown');
+                // Track with Google Analytics if available
+                if (typeof gtag !== 'undefined') {
+                    gtag('event', 'exit_intent_popup_shown', {
+                        discount: this.config.discount,
+                        coupon_code: this.config.couponCode
+                    });
+                }
             }
         }
     }
 
     closePopup() {
-        this.querySelector('#exitPopupOverlay').classList.remove('show');
-        this.popupClosed = true;
-        
-        // Dispatch custom event
-        this.dispatchEvent(new CustomEvent('popup-closed', {
-            bubbles: true,
-            detail: { timestamp: Date.now() }
-        }));
+        const overlay = this.querySelector('#exitPopupOverlay');
+        if (overlay) {
+            overlay.classList.remove('show');
+            this.popupClosed = true;
+            
+            // Dispatch custom event
+            this.dispatchEvent(new CustomEvent('popup-closed', {
+                bubbles: true,
+                detail: { 
+                    timestamp: Date.now(),
+                    config: this.config 
+                }
+            }));
 
-        // Track with Google Analytics if available
-        if (typeof gtag !== 'undefined') {
-            gtag('event', 'exit_intent_popup_closed');
+            // Track with Google Analytics if available
+            if (typeof gtag !== 'undefined') {
+                gtag('event', 'exit_intent_popup_closed', {
+                    discount: this.config.discount,
+                    coupon_code: this.config.couponCode
+                });
+            }
         }
     }
 
     claimOffer() {
-        const couponCode = this.getAttribute('coupon-code') || 'SAVE25';
-        const redirectUrl = this.getAttribute('redirect-url');
-        
         // Dispatch custom event with coupon code
         this.dispatchEvent(new CustomEvent('offer-claimed', {
             bubbles: true,
             detail: { 
-                couponCode: couponCode,
-                timestamp: Date.now()
+                couponCode: this.config.couponCode,
+                discount: this.config.discount,
+                timestamp: Date.now(),
+                config: this.config
             }
         }));
 
         // Track with Google Analytics if available
         if (typeof gtag !== 'undefined') {
             gtag('event', 'exit_intent_offer_claimed', {
-                coupon_code: couponCode
+                coupon_code: this.config.couponCode,
+                discount: this.config.discount
             });
         }
 
-        if (redirectUrl) {
-            window.location.href = redirectUrl;
+        if (this.config.redirectUrl && this.config.redirectUrl.trim() !== '') {
+            window.location.href = this.config.redirectUrl;
         } else {
-            alert(`Discount code ${couponCode} has been applied! Redirecting to checkout...`);
+            alert(`Discount code ${this.config.couponCode} has been applied! Redirecting to checkout...`);
         }
         
         this.closePopup();
     }
 
-    // Method to manually trigger popup (for testing)
+    // Public API methods for manual control
     triggerPopup() {
         this.showExitPopup();
     }
 
-    // Method to reset popup state
     resetPopup() {
         this.popupShown = false;
         this.popupClosed = false;
         this.mouseLeftWindow = false;
     }
 
-    // Getters and setters for customization
-    get discount() {
-        return this.getAttribute('discount') || '25% OFF';
+    updateConfiguration(newConfig) {
+        this.config = { ...this.getDefaultConfig(), ...newConfig };
+        this.updatePopupContent();
+        this.updatePopupStyles();
     }
 
-    set discount(value) {
-        this.setAttribute('discount', value);
+    getConfiguration() {
+        return { ...this.config };
+    }
+
+    // Getters for individual config properties
+    get discount() {
+        return this.config.discount;
     }
 
     get couponCode() {
-        return this.getAttribute('coupon-code') || 'SAVE25';
-    }
-
-    set couponCode(value) {
-        this.setAttribute('coupon-code', value);
+        return this.config.couponCode;
     }
 
     get ctaText() {
-        return this.getAttribute('cta-text') || 'Claim My Discount';
-    }
-
-    set ctaText(value) {
-        this.setAttribute('cta-text', value);
+        return this.config.ctaText;
     }
 
     get redirectUrl() {
-        return this.getAttribute('redirect-url');
+        return this.config.redirectUrl;
     }
 
-    set redirectUrl(value) {
-        this.setAttribute('redirect-url', value);
+    get urgencyTime() {
+        return this.config.urgencyTime;
     }
 
-    static get observedAttributes() {
-        return ['discount', 'coupon-code', 'cta-text', 'redirect-url', 'urgency-time'];
+    get popupTitle() {
+        return this.config.popupTitle;
     }
 
-    attributeChangedCallback(name, oldValue, newValue) {
-        if (oldValue !== newValue) {
-            // Update the popup content when attributes change
-            this.updatePopupContent();
-        }
+    get popupSubtitle() {
+        return this.config.popupSubtitle;
     }
 
-    updatePopupContent() {
-        const discountBadge = this.querySelector('.discount-badge');
-        const description = this.querySelector('.popup-description');
-        const ctaButton = this.querySelector('#ctaBtn');
-        const urgencyText = this.querySelector('.urgency-text');
+    get backgroundColor() {
+        return this.config.backgroundColor;
+    }
 
-        if (discountBadge) {
-            discountBadge.textContent = this.discount;
-        }
-
-        if (description) {
-            description.innerHTML = `
-                Use code <strong>${this.couponCode}</strong> and get instant ${this.discount} discount on your entire order. 
-                This exclusive offer is only available for the next few minutes!
-            `;
-        }
-
-        if (ctaButton) {
-            ctaButton.textContent = this.ctaText;
-        }
-
-        if (urgencyText) {
-            urgencyText.innerHTML = `⏰ Limited time offer - expires in ${this.getAttribute('urgency-time') || '10 minutes'}!`;
-        }
+    get buttonColor() {
+        return this.config.buttonColor;
     }
 }
 
