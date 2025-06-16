@@ -1,5 +1,3 @@
-// File name: exit-intent-popup.js
-// Custom Element Tag: <exit-intent-popup></exit-intent-popup>
 
 class ExitIntentPopup extends HTMLElement {
     constructor() {
@@ -495,18 +493,6 @@ class ExitIntentPopup extends HTMLElement {
         }
         
         this.closePopup();
-    }
-
-    // Method to manually trigger popup (for testing)
-    triggerPopup() {
-        this.showExitPopup();
-    }
-
-    // Method to reset popup state
-    resetPopup() {
-        this.popupShown = false;
-        this.popupClosed = false;
-        this.mouseLeftWindow = false;
     }
 
     disconnectedCallback() {
