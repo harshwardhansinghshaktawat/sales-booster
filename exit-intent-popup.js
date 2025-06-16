@@ -71,7 +71,12 @@ class ExitIntentPopup extends HTMLElement {
         });
 
         this.renderPopup();
-        this.setupEventListeners();
+        
+        // Small delay to ensure DOM is ready
+        setTimeout(() => {
+            this.setupEventListeners();
+        }, 100);
+        
         this.initializeExitIntent();
         
         // Demo trigger for testing - show popup after 3 seconds if no config
@@ -427,7 +432,11 @@ class ExitIntentPopup extends HTMLElement {
     updatePopupContent() {
         // Re-render the entire popup with new settings (this is the key!)
         this.renderPopup();
-        this.setupEventListeners();
+        
+        // Small delay to ensure DOM is ready before attaching events
+        setTimeout(() => {
+            this.setupEventListeners();
+        }, 100);
     }
 
     setupEventListeners() {
@@ -436,61 +445,52 @@ class ExitIntentPopup extends HTMLElement {
         const ctaBtn = this.querySelector('#ctaBtn');
         const noThanksBtn = this.querySelector('#noThanksBtn');
 
-        // Enhanced event binding with error handling
+        console.log('Setting up event listeners...', {
+            overlay: !!overlay,
+            closeBtn: !!closeBtn,
+            ctaBtn: !!ctaBtn,
+            noThanksBtn: !!noThanksBtn
+        });
+
+        // Simple event binding (like your working code)
         if (closeBtn) {
-            closeBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
+            closeBtn.addEventListener('click', () => {
                 console.log('Close button clicked');
                 this.closePopup();
             });
-        } else {
-            console.error('Close button not found');
         }
 
         if (ctaBtn) {
-            ctaBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
+            ctaBtn.addEventListener('click', () => {
                 console.log('CTA button clicked');
                 this.claimOffer();
             });
-        } else {
-            console.error('CTA button not found');
         }
 
         if (noThanksBtn) {
-            noThanksBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
+            noThanksBtn.addEventListener('click', () => {
                 console.log('No Thanks button clicked');
                 this.closePopup();
             });
-        } else {
-            console.error('No Thanks button not found');
         }
 
         // Close when clicking outside
         if (overlay) {
             overlay.addEventListener('click', (e) => {
                 if (e.target === overlay) {
-                    console.log('Overlay clicked - closing popup');
+                    console.log('Overlay clicked');
                     this.closePopup();
                 }
             });
         }
 
         // Keyboard support
-        const handleKeyDown = (e) => {
+        document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.popupShown) {
-                console.log('Escape key pressed - closing popup');
+                console.log('Escape pressed');
                 this.closePopup();
             }
-        };
-        
-        // Clean up previous listener
-        document.removeEventListener('keydown', handleKeyDown);
-        document.addEventListener('keydown', handleKeyDown);
+        });
     }
 
     initializeExitIntent() {
@@ -588,10 +588,12 @@ class ExitIntentPopup extends HTMLElement {
     }
 
     closePopup() {
+        console.log('closePopup() called');
         const overlay = this.querySelector('#exitPopupOverlay');
         if (overlay) {
             overlay.classList.remove('show');
             this.popupClosed = true;
+            console.log('Popup closed successfully');
             
             // Dispatch custom event
             this.dispatchEvent(new CustomEvent('popup-closed', {
@@ -606,10 +608,15 @@ class ExitIntentPopup extends HTMLElement {
             if (typeof gtag !== 'undefined') {
                 gtag('event', 'exit_intent_popup_closed');
             }
+        } else {
+            console.error('Overlay not found when trying to close popup');
         }
     }
 
     claimOffer() {
+        console.log('claimOffer() called');
+        console.log('ctaButtonLink:', this.settings.ctaButtonLink);
+        
         // Dispatch custom event with coupon code
         this.dispatchEvent(new CustomEvent('offer-claimed', {
             bubbles: true,
@@ -627,33 +634,16 @@ class ExitIntentPopup extends HTMLElement {
             });
         }
 
-        // Close popup first
-        this.closePopup();
-
-        // Enhanced redirect handling
+        // Simple redirect logic (like your working code)
         if (this.settings.ctaButtonLink && this.settings.ctaButtonLink.trim() !== '') {
-            try {
-                let url = this.settings.ctaButtonLink.trim();
-                
-                // Smart URL handling
-                if (!url.match(/^https?:\/\//)) {
-                    if (url.includes('.')) {
-                        url = 'https://' + url;
-                    } else {
-                        url = '/' + url.replace(/^\/+/, '');
-                    }
-                }
-                
-                console.log('Redirecting to:', url);
-                window.location.href = url;
-                
-            } catch (error) {
-                console.error('Error with redirect URL:', error);
-                alert(`Discount code ${this.settings.couponCode} has been applied! Please manually navigate to complete your purchase.`);
-            }
+            console.log('Opening link:', this.settings.ctaButtonLink);
+            window.open(this.settings.ctaButtonLink, '_blank');
         } else {
+            console.log('No link provided, showing alert');
             alert(`Discount code ${this.settings.couponCode} has been applied!`);
         }
+        
+        this.closePopup();
     }
 
     // Public API methods
