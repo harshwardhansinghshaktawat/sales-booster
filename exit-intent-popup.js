@@ -1,212 +1,409 @@
-class ExitIntentPopup extends HTMLElement {
+class ExitIntentPopupElement extends HTMLElement {
     constructor() {
         super();
+        this.isShown = false;
+        this.exitDetected = false;
         this.settings = {
-            popupText: "Don't Leave Yet! Get 20% OFF Your Next Purchase!",
-            buttonText: "Claim Discount",
-            buttonLink: "#",
-            fontFamily: "Arial",
-            fontSize: 16,
-            textColor: "#333333",
-            buttonColor: "#3498db",
-            buttonTextColor: "#ffffff",
-            backgroundGradient: "linear-gradient(135deg, #f5f7fa, #c3cfe2)",
-            showOnce: true,
-            animationDuration: 300,
-            borderRadius: 10,
-            maxWidth: 400
+            // Content Settings
+            mainHeading: 'Wait! Don\'t Leave Yet!',
+            subHeading: 'Get an exclusive discount before you go',
+            discountText: '50% OFF',
+            description: 'Limited time offer - Use code SAVE50 at checkout',
+            buttonText: 'Claim Discount',
+            buttonLink: '#',
+            secondaryButtonText: 'No Thanks',
+            
+            // Style Settings
+            fontFamily: 'Arial',
+            headingFontSize: 32,
+            subHeadingFontSize: 18,
+            discountFontSize: 48,
+            descriptionFontSize: 16,
+            buttonFontSize: 18,
+            
+            // Colors
+            overlayColor: '#000000',
+            overlayOpacity: 70,
+            textColor: '#333333',
+            headingColor: '#333333',
+            discountColor: '#e74c3c',
+            buttonBackgroundColor: '#e74c3c',
+            buttonTextColor: '#ffffff',
+            secondaryButtonColor: '#666666',
+            
+            // Background Gradient
+            backgroundGradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            gradientPreset: 'blue-purple',
+            
+            // Animation & Behavior
+            enableAnimations: true,
+            animationStyle: 'slideUp',
+            autoHide: false,
+            hideDelay: 10000,
+            
+            // Mobile Settings
+            mobileEnabled: true,
+            mobileScrollTrigger: 80,
+            
+            // Advanced
+            showOnMobile: true,
+            showOnDesktop: true,
+            borderRadius: 15,
+            popupWidth: 500,
+            popupMaxWidth: 90
         };
-        this.hasShown = false;
+        
+        this.gradientPresets = {
+            'blue-purple': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            'orange-red': 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+            'green-blue': 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+            'purple-pink': 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+            'sunset': 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+            'ocean': 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+            'forest': 'linear-gradient(135deg, #d299c2 0%, #fef9d7 100%)',
+            'gold': 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)'
+        };
     }
 
     connectedCallback() {
-        // Apply basic styles to the host element
-        Object.assign(this.style, {
-            display: "none",
-            position: "fixed",
-            top: "0",
-            left: "0",
-            width: "100%",
-            height: "100%",
-            background: "rgba(0, 0, 0, 0.5)",
-            zIndex: "9999",
-            justifyContent: "center",
-            alignItems: "center"
-        });
-
-        // Create popup container
-        this.popup = document.createElement("div");
-        Object.assign(this.popup.style, {
-            background: this.settings.backgroundGradient,
-            padding: "20px",
-            borderRadius: `${this.settings.borderRadius}px`,
-            maxWidth: `${this.settings.maxWidth}px`,
-            width: "90%",
-            textAlign: "center",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
-            transform: "scale(0.7)",
-            opacity: "0",
-            transition: `all ${this.settings.animationDuration}ms ease-in-out`,
-            fontFamily: this.settings.fontFamily
-        });
-
-        // Create popup text
-        this.textElement = document.createElement("p");
-        Object.assign(this.textElement.style, {
-            fontSize: `${this.settings.fontSize}px`,
-            color: this.settings.textColor,
-            margin: "0 0 20px 0"
-        });
-        this.textElement.textContent = this.settings.popupText;
-
-        // Create button
-        this.button = document.createElement("a");
-        Object.assign(this.button.style, {
-            display: "inline-block",
-            padding: "10px 20px",
-            background: this.settings.buttonColor,
-            color: this.settings.buttonTextColor,
-            textDecoration: "none",
-            borderRadius: "5px",
-            fontSize: `${this.settings.fontSize - 2}px`,
-            fontWeight: "bold",
-            cursor: "pointer"
-        });
-        this.button.textContent = this.settings.buttonText;
-        this.button.href = this.settings.buttonLink;
-
-        // Append elements
-        this.popup.appendChild(this.textElement);
-        this.popup.appendChild(this.button);
-        this.appendChild(this.popup);
-
-        // Close button
-        this.closeButton = document.createElement("span");
-        Object.assign(this.closeButton.style, {
-            position: "absolute",
-            top: "10px",
-            right: "15px",
-            fontSize: "20px",
-            cursor: "pointer",
-            color: this.settings.textColor
-        });
-        this.closeButton.textContent = "×";
-        this.closeButton.onclick = () => this.hidePopup();
-        this.popup.appendChild(this.closeButton);
-
-        // Detect exit intent
-        this.setupExitIntent();
+        this.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 999999;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        `;
+        
+        this.render();
+        this.attachEventListeners();
     }
 
     static get observedAttributes() {
-        return ["options"];
+        return ['settings', 'content'];
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
-        if (name === "options" && newValue && newValue !== oldValue) {
-            const newOptions = JSON.parse(newValue);
-            Object.assign(this.settings, newOptions);
-            this.updatePopup();
+        if (newValue && newValue !== oldValue) {
+            if (name === 'settings') {
+                const newSettings = JSON.parse(newValue);
+                Object.assign(this.settings, newSettings);
+            } else if (name === 'content') {
+                const contentData = JSON.parse(newValue);
+                Object.assign(this.settings, contentData);
+            }
+            if (this.popup) {
+                this.updatePopup();
+            }
         }
     }
 
-    setupExitIntent() {
-        // Mouse leave detection for desktop
-        document.addEventListener("mouseout", (e) => {
-            if (e.relatedTarget === null && !this.hasShown && this.settings.showOnce) {
-                this.showPopup();
-                this.hasShown = true;
-            } else if (!this.settings.showOnce && e.relatedTarget === null) {
-                this.showPopup();
-            }
-        });
+    render() {
+        this.innerHTML = `
+            <div class="exit-popup-overlay" style="
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: ${this.settings.overlayColor};
+                opacity: ${this.settings.overlayOpacity / 100};
+            "></div>
+            <div class="exit-popup-container" style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) scale(0.8);
+                width: ${this.settings.popupWidth}px;
+                max-width: ${this.settings.popupMaxWidth}%;
+                background: ${this.settings.backgroundGradient};
+                border-radius: ${this.settings.borderRadius}px;
+                padding: 40px 30px;
+                text-align: center;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                font-family: ${this.settings.fontFamily};
+                transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            ">
+                <button class="exit-popup-close" style="
+                    position: absolute;
+                    top: 15px;
+                    right: 15px;
+                    background: none;
+                    border: none;
+                    font-size: 24px;
+                    color: ${this.settings.textColor};
+                    cursor: pointer;
+                    opacity: 0.7;
+                    transition: opacity 0.2s ease;
+                    width: 30px;
+                    height: 30px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                ">&times;</button>
+                
+                <div class="exit-popup-content">
+                    <h1 style="
+                        margin: 0 0 10px 0;
+                        font-size: ${this.settings.headingFontSize}px;
+                        font-weight: bold;
+                        color: ${this.settings.headingColor};
+                        line-height: 1.2;
+                    ">${this.settings.mainHeading}</h1>
+                    
+                    <p style="
+                        margin: 0 0 20px 0;
+                        font-size: ${this.settings.subHeadingFontSize}px;
+                        color: ${this.settings.textColor};
+                        opacity: 0.9;
+                    ">${this.settings.subHeading}</p>
+                    
+                    <div class="discount-badge" style="
+                        font-size: ${this.settings.discountFontSize}px;
+                        font-weight: bold;
+                        color: ${this.settings.discountColor};
+                        margin: 20px 0;
+                        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+                        line-height: 1;
+                    ">${this.settings.discountText}</div>
+                    
+                    <p style="
+                        margin: 0 0 30px 0;
+                        font-size: ${this.settings.descriptionFontSize}px;
+                        color: ${this.settings.textColor};
+                        opacity: 0.8;
+                        line-height: 1.4;
+                    ">${this.settings.description}</p>
+                    
+                    <div class="button-group" style="
+                        display: flex;
+                        gap: 15px;
+                        justify-content: center;
+                        flex-wrap: wrap;
+                    ">
+                        <button class="primary-button" style="
+                            background: ${this.settings.buttonBackgroundColor};
+                            color: ${this.settings.buttonTextColor};
+                            border: none;
+                            padding: 15px 30px;
+                            font-size: ${this.settings.buttonFontSize}px;
+                            font-weight: bold;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            transition: transform 0.2s ease, box-shadow 0.2s ease;
+                            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                            min-width: 150px;
+                        ">${this.settings.buttonText}</button>
+                        
+                        <button class="secondary-button" style="
+                            background: transparent;
+                            color: ${this.settings.secondaryButtonColor};
+                            border: 2px solid ${this.settings.secondaryButtonColor};
+                            padding: 13px 25px;
+                            font-size: ${this.settings.buttonFontSize - 2}px;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            transition: all 0.2s ease;
+                        ">${this.settings.secondaryButtonText}</button>
+                    </div>
+                </div>
+            </div>
+        `;
 
-        // Mobile touch detection (simulating exit intent with scroll up)
-        let lastScrollY = window.scrollY;
-        window.addEventListener("scroll", () => {
-            if (window.scrollY < lastScrollY && window.scrollY < 100 && !this.hasShown && this.settings.showOnce) {
-                this.showPopup();
-                this.hasShown = true;
-            } else if (window.scrollY < lastScrollY && window.scrollY < 100 && !this.settings.showOnce) {
-                this.showPopup();
-            }
-            lastScrollY = window.scrollY;
-        });
+        this.popup = this.querySelector('.exit-popup-container');
+        this.overlay = this.querySelector('.exit-popup-overlay');
+        this.closeBtn = this.querySelector('.exit-popup-close');
+        this.primaryBtn = this.querySelector('.primary-button');
+        this.secondaryBtn = this.querySelector('.secondary-button');
 
-        // Prevent popup from showing if user clicks outside
-        this.addEventListener("click", (e) => {
-            if (e.target === this) this.hidePopup();
-        });
+        // Add hover effects
+        this.addHoverEffects();
+    }
+
+    addHoverEffects() {
+        if (this.closeBtn) {
+            this.closeBtn.addEventListener('mouseenter', () => {
+                this.closeBtn.style.opacity = '1';
+                this.closeBtn.style.transform = 'scale(1.1)';
+            });
+            this.closeBtn.addEventListener('mouseleave', () => {
+                this.closeBtn.style.opacity = '0.7';
+                this.closeBtn.style.transform = 'scale(1)';
+            });
+        }
+
+        if (this.primaryBtn) {
+            this.primaryBtn.addEventListener('mouseenter', () => {
+                this.primaryBtn.style.transform = 'translateY(-2px)';
+                this.primaryBtn.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)';
+            });
+            this.primaryBtn.addEventListener('mouseleave', () => {
+                this.primaryBtn.style.transform = 'translateY(0)';
+                this.primaryBtn.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)';
+            });
+        }
+
+        if (this.secondaryBtn) {
+            this.secondaryBtn.addEventListener('mouseenter', () => {
+                this.secondaryBtn.style.background = this.settings.secondaryButtonColor;
+                this.secondaryBtn.style.color = '#ffffff';
+            });
+            this.secondaryBtn.addEventListener('mouseleave', () => {
+                this.secondaryBtn.style.background = 'transparent';
+                this.secondaryBtn.style.color = this.settings.secondaryButtonColor;
+            });
+        }
+    }
+
+    attachEventListeners() {
+        // Desktop exit intent detection
+        if (this.settings.showOnDesktop) {
+            document.addEventListener('mouseleave', this.handleExitIntent.bind(this));
+        }
+
+        // Mobile scroll detection
+        if (this.settings.showOnMobile && this.settings.mobileEnabled) {
+            let scrolled = false;
+            window.addEventListener('scroll', () => {
+                if (!scrolled && window.scrollY > this.settings.mobileScrollTrigger) {
+                    scrolled = true;
+                    this.handleExitIntent();
+                }
+            });
+        }
+
+        // Click event listeners
+        if (this.closeBtn) {
+            this.closeBtn.addEventListener('click', this.hidePopup.bind(this));
+        }
+        
+        if (this.secondaryBtn) {
+            this.secondaryBtn.addEventListener('click', this.hidePopup.bind(this));
+        }
+        
+        if (this.primaryBtn) {
+            this.primaryBtn.addEventListener('click', () => {
+                if (this.settings.buttonLink && this.settings.buttonLink !== '#') {
+                    window.open(this.settings.buttonLink, '_blank');
+                }
+                this.hidePopup();
+            });
+        }
+
+        if (this.overlay) {
+            this.overlay.addEventListener('click', this.hidePopup.bind(this));
+        }
+
+        // Auto hide
+        if (this.settings.autoHide && this.settings.hideDelay > 0) {
+            setTimeout(() => {
+                this.hidePopup();
+            }, this.settings.hideDelay);
+        }
+    }
+
+    handleExitIntent() {
+        if (!this.exitDetected && !this.isShown) {
+            this.exitDetected = true;
+            this.showPopup();
+        }
     }
 
     showPopup() {
-        this.style.display = "flex";
-        setTimeout(() => {
-            this.popup.style.transform = "scale(1)";
-            this.popup.style.opacity = "1";
-        }, 10);
+        if (this.isShown) return;
+        
+        this.isShown = true;
+        this.style.pointerEvents = 'all';
+        this.style.opacity = '1';
+
+        if (this.settings.enableAnimations) {
+            setTimeout(() => {
+                if (this.popup) {
+                    this.popup.style.transform = 'translate(-50%, -50%) scale(1)';
+                }
+            }, 10);
+        } else {
+            if (this.popup) {
+                this.popup.style.transform = 'translate(-50%, -50%) scale(1)';
+            }
+        }
     }
 
     hidePopup() {
-        this.popup.style.transform = "scale(0.7)";
-        this.popup.style.opacity = "0";
-        setTimeout(() => {
-            this.style.display = "none";
-        }, this.settings.animationDuration);
+        if (!this.isShown) return;
+        
+        this.isShown = false;
+        
+        if (this.settings.enableAnimations) {
+            if (this.popup) {
+                this.popup.style.transform = 'translate(-50%, -50%) scale(0.8)';
+            }
+            setTimeout(() => {
+                this.style.opacity = '0';
+                this.style.pointerEvents = 'none';
+            }, 300);
+        } else {
+            this.style.opacity = '0';
+            this.style.pointerEvents = 'none';
+        }
     }
 
     updatePopup() {
-        // Update styles and content
-        this.popup.style.background = this.settings.backgroundGradient;
-        this.popup.style.borderRadius = `${this.settings.borderRadius}px`;
-        this.popup.style.maxWidth = `${this.settings.maxWidth}px`;
-        this.popup.style.fontFamily = this.settings.fontFamily;
-        this.popup.style.transition = `all ${this.settings.animationDuration}ms ease-in-out`;
-
-        this.textElement.textContent = this.settings.popupText;
-        this.textElement.style.fontSize = `${this.settings.fontSize}px`;
-        this.textElement.style.color = this.settings.textColor;
-
-        this.button.textContent = this.settings.buttonText;
-        this.button.href = this.settings.buttonLink;
-        this.button.style.background = this.settings.buttonColor;
-        this.button.style.color = this.settings.buttonTextColor;
-        this.button.style.fontSize = `${this.settings.fontSize - 2}px`;
-
-        this.closeButton.style.color = this.settings.textColor;
+        // Update gradient if preset changed
+        if (this.settings.gradientPreset && this.gradientPresets[this.settings.gradientPreset]) {
+            this.settings.backgroundGradient = this.gradientPresets[this.settings.gradientPreset];
+        }
+        
+        // Re-render the popup
+        this.render();
+        this.attachEventListeners();
     }
 
     disconnectedCallback() {
-        // Clean up event listeners
-        document.removeEventListener("mouseout", this.showPopup);
-        window.removeEventListener("scroll", this.showPopup);
+        document.removeEventListener('mouseleave', this.handleExitIntent.bind(this));
+        window.removeEventListener('scroll', this.handleScrollExit);
     }
 }
 
-customElements.define("exit-intent-popup", ExitIntentPopup);
+customElements.define('exit-intent-popup', ExitIntentPopupElement);
 
 export const STYLE = `
     :host {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 9999;
-        justify-content: center;
-        align-items: center;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     }
-    div {
-        box-sizing: border-box;
-        transform: scale(0.7);
-        opacity: 0;
+    
+    .exit-popup-container {
+        animation: popupEntry 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
-    @media (max-width: 600px) {
-        div {
-            width: 95%;
-            padding: 15px;
+    
+    @keyframes popupEntry {
+        0% {
+            transform: translate(-50%, -50%) scale(0.5);
+            opacity: 0;
+        }
+        100% {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .exit-popup-container {
+            width: 95% !important;
+            padding: 30px 20px !important;
+        }
+        
+        .button-group {
+            flex-direction: column !important;
+        }
+        
+        .primary-button,
+        .secondary-button {
+            width: 100% !important;
+            min-width: auto !important;
         }
     }
 `;
