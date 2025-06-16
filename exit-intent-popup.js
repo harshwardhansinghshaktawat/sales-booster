@@ -1,6 +1,6 @@
-// File name: exit-intent-popup-blocks.js
+// File name: exit-intent-popup-blocks-fixed.js
 // Custom Element Tag: <exit-intent-popup></exit-intent-popup>
-// Designed for Wix Blocks integration with JSON configuration
+// Designed for Wix Blocks with maximum editability
 
 class ExitIntentPopup extends HTMLElement {
     constructor() {
@@ -11,70 +11,101 @@ class ExitIntentPopup extends HTMLElement {
         this.lastTrigger = 0;
         this.lastScrollTop = 0;
         
-        // Initialize with default configuration
-        this.config = this.getDefaultConfig();
-        this.isInitialized = false;
+        // Default settings with maximum editability
+        this.settings = {
+            // Text Content - Fully Editable
+            popupTitle: 'Wait! Don\'t Miss Out!',
+            popupSubtitle: 'You\'re about to leave, but we have an exclusive offer just for you!',
+            discountText: '25% OFF',
+            couponCode: 'SAVE25',
+            popupDescription: 'Use code <strong>SAVE25</strong> and get instant 25% discount on your entire order. This exclusive offer is only available for the next few minutes!',
+            ctaButtonText: 'Claim My Discount',
+            noThanksText: 'No thanks, I\'ll pass',
+            urgencyText: '⏰ Limited time offer - expires in 10 minutes!',
+            popupIcon: '🎉',
+            
+            // Functionality
+            ctaButtonLink: '',
+            
+            // Typography - Fully Customizable
+            fontFamily: 'Arial',
+            titleFontSize: 28,
+            subtitleFontSize: 18,
+            descriptionFontSize: 16,
+            buttonFontSize: 18,
+            urgencyFontSize: 14,
+            noThanksFontSize: 14,
+            discountBadgeFontSize: 24,
+            
+            // Colors - Fully Customizable
+            backgroundGradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            discountBadgeColor: 'linear-gradient(45deg, #ff6b6b, #ee5a24)',
+            ctaButtonColor: 'linear-gradient(45deg, #00d2ff, #3a7bd5)',
+            textColor: '#ffffff',
+            buttonTextColor: '#ffffff',
+            noThanksTextColor: '#ffffff',
+            noThanksBorderColor: 'rgba(255, 255, 255, 0.3)',
+            
+            // Layout & Spacing
+            popupMaxWidth: 500,
+            popupPadding: 40,
+            borderRadius: 20,
+            iconSize: 60,
+            
+            // Animation
+            enableAnimations: true,
+            animationDuration: 0.4
+        };
+    }
+
+    connectedCallback() {
+        // Set host styles
+        Object.assign(this.style, {
+            display: 'block',
+            width: '100%',
+            height: '100%',
+            position: 'relative',
+            overflow: 'hidden',
+            padding: '0',
+            margin: '0'
+        });
+
+        this.renderPopup();
+        this.setupEventListeners();
+        this.initializeExitIntent();
+        
+        // Demo trigger for testing - show popup after 3 seconds if no config
+        setTimeout(() => {
+            if (!this.hasAttribute('config') || this.getAttribute('config') === '') {
+                this.showExitPopup();
+            }
+        }, 3000);
     }
 
     static get observedAttributes() {
         return ['config'];
     }
 
-    connectedCallback() {
-        // Parse initial config if provided
-        const configAttr = this.getAttribute('config');
-        if (configAttr) {
-            this.updateConfigFromJSON(configAttr);
-        }
-
-        this.render();
-        this.setupEventListeners();
-        this.initializeExitIntent();
-        this.isInitialized = true;
-    }
-
     attributeChangedCallback(name, oldValue, newValue) {
-        if (name === 'config' && oldValue !== newValue && this.isInitialized) {
-            this.updateConfigFromJSON(newValue);
-            this.updatePopupContent();
-            this.updatePopupStyles();
-        }
-    }
-
-    updateConfigFromJSON(jsonString) {
-        try {
-            if (jsonString && jsonString.trim() !== '') {
-                const parsedConfig = JSON.parse(jsonString);
-                // Merge with defaults to ensure all properties exist
-                this.config = { ...this.getDefaultConfig(), ...parsedConfig };
+        if (name === 'config') {
+            if (newValue && newValue !== oldValue && newValue.trim() !== '') {
+                try {
+                    const newConfig = JSON.parse(newValue);
+                    // Merge new config with existing settings
+                    Object.assign(this.settings, newConfig);
+                    this.updatePopupContent();
+                } catch (e) {
+                    console.warn('Invalid JSON in config attribute:', e);
+                    console.warn('Invalid JSON string:', newValue);
+                }
             } else {
-                this.config = this.getDefaultConfig();
+                // Use defaults if no config provided
+                this.updatePopupContent();
             }
-        } catch (e) {
-            console.error('Error parsing exit-intent popup config JSON:', e);
-            console.error('Invalid JSON:', jsonString);
-            this.config = this.getDefaultConfig();
         }
     }
 
-    getDefaultConfig() {
-        return {
-            discount: "25% OFF",
-            couponCode: "SAVE25",
-            ctaText: "Claim My Discount",
-            redirectUrl: "",
-            urgencyTime: "10 minutes",
-            popupTitle: "Wait! Don't Miss Out!",
-            popupSubtitle: "You're about to leave, but we have an exclusive offer just for you!",
-            backgroundColor: "#667eea",
-            buttonColor: "#00d2ff",
-            popupDescription: "Use code SAVE25 and get instant 25% OFF discount on your entire order. This exclusive offer is only available for the next few minutes!",
-            popupIcon: "🎉",
-            noThanksText: "No thanks, I'll pass"
-        };
-    }
-
-    render() {
+    renderPopup() {
         this.innerHTML = `
             <style>
                 :host {
@@ -100,7 +131,7 @@ class ExitIntentPopup extends HTMLElement {
                     display: none;
                     align-items: center;
                     justify-content: center;
-                    animation: fadeIn 0.3s ease-out;
+                    animation: ${this.settings.enableAnimations ? 'fadeIn 0.3s ease-out' : 'none'};
                 }
 
                 .exit-popup-overlay.show {
@@ -123,17 +154,45 @@ class ExitIntentPopup extends HTMLElement {
                     }
                 }
 
+                @keyframes bounce {
+                    0%, 20%, 50%, 80%, 100% {
+                        transform: translateY(0);
+                    }
+                    40% {
+                        transform: translateY(-10px);
+                    }
+                    60% {
+                        transform: translateY(-5px);
+                    }
+                }
+
+                @keyframes pulse {
+                    0% {
+                        transform: scale(1);
+                        box-shadow: 0 8px 25px rgba(238, 90, 36, 0.4);
+                    }
+                    50% {
+                        transform: scale(1.05);
+                        box-shadow: 0 12px 35px rgba(238, 90, 36, 0.6);
+                    }
+                    100% {
+                        transform: scale(1);
+                        box-shadow: 0 8px 25px rgba(238, 90, 36, 0.4);
+                    }
+                }
+
                 .exit-popup {
-                    background: linear-gradient(135deg, ${this.config.backgroundColor} 0%, ${this.config.backgroundColor}dd 100%);
-                    border-radius: 20px;
-                    padding: 40px 30px;
-                    max-width: 500px;
+                    background: ${this.settings.backgroundGradient};
+                    border-radius: ${this.settings.borderRadius}px;
+                    padding: ${this.settings.popupPadding}px 30px;
+                    max-width: ${this.settings.popupMaxWidth}px;
                     width: 90%;
                     text-align: center;
                     position: relative;
                     box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
-                    animation: slideUp 0.4s ease-out;
-                    color: white;
+                    animation: ${this.settings.enableAnimations ? `slideUp ${this.settings.animationDuration}s ease-out` : 'none'};
+                    color: ${this.settings.textColor};
+                    font-family: ${this.settings.fontFamily}, sans-serif;
                 }
 
                 .exit-popup::before {
@@ -144,7 +203,7 @@ class ExitIntentPopup extends HTMLElement {
                     right: 0;
                     bottom: 0;
                     background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
-                    border-radius: 20px;
+                    border-radius: ${this.settings.borderRadius}px;
                     pointer-events: none;
                 }
 
@@ -164,6 +223,7 @@ class ExitIntentPopup extends HTMLElement {
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    z-index: 10;
                 }
 
                 .close-btn:hover {
@@ -172,78 +232,67 @@ class ExitIntentPopup extends HTMLElement {
                 }
 
                 .popup-icon {
-                    font-size: 60px;
+                    font-size: ${this.settings.iconSize}px;
                     margin-bottom: 20px;
-                    animation: bounce 2s infinite;
-                }
-
-                @keyframes bounce {
-                    0%, 20%, 50%, 80%, 100% {
-                        transform: translateY(0);
-                    }
-                    40% {
-                        transform: translateY(-10px);
-                    }
-                    60% {
-                        transform: translateY(-5px);
-                    }
+                    animation: ${this.settings.enableAnimations ? 'bounce 2s infinite' : 'none'};
                 }
 
                 .popup-title {
-                    font-size: 28px;
+                    font-size: ${this.settings.titleFontSize}px;
                     font-weight: 700;
                     margin-bottom: 15px;
                     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+                    font-family: ${this.settings.fontFamily}, sans-serif;
+                    color: ${this.settings.textColor};
+                    position: relative;
+                    z-index: 1;
                 }
 
                 .popup-subtitle {
-                    font-size: 18px;
+                    font-size: ${this.settings.subtitleFontSize}px;
                     margin-bottom: 25px;
                     opacity: 0.9;
                     line-height: 1.4;
+                    font-family: ${this.settings.fontFamily}, sans-serif;
+                    color: ${this.settings.textColor};
+                    position: relative;
+                    z-index: 1;
                 }
 
                 .discount-badge {
                     display: inline-block;
-                    background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+                    background: ${this.settings.discountBadgeColor};
                     padding: 15px 30px;
                     border-radius: 50px;
-                    font-size: 24px;
+                    font-size: ${this.settings.discountBadgeFontSize}px;
                     font-weight: 800;
                     margin: 20px 0;
                     box-shadow: 0 8px 25px rgba(238, 90, 36, 0.4);
-                    animation: pulse 2s infinite;
-                }
-
-                @keyframes pulse {
-                    0% {
-                        transform: scale(1);
-                        box-shadow: 0 8px 25px rgba(238, 90, 36, 0.4);
-                    }
-                    50% {
-                        transform: scale(1.05);
-                        box-shadow: 0 12px 35px rgba(238, 90, 36, 0.6);
-                    }
-                    100% {
-                        transform: scale(1);
-                        box-shadow: 0 8px 25px rgba(238, 90, 36, 0.4);
-                    }
+                    animation: ${this.settings.enableAnimations ? 'pulse 2s infinite' : 'none'};
+                    font-family: ${this.settings.fontFamily}, sans-serif;
+                    color: white;
+                    position: relative;
+                    z-index: 1;
                 }
 
                 .popup-description {
-                    font-size: 16px;
+                    font-size: ${this.settings.descriptionFontSize}px;
                     margin: 20px 0;
                     line-height: 1.5;
                     opacity: 0.95;
+                    font-family: ${this.settings.fontFamily}, sans-serif;
+                    color: ${this.settings.textColor};
+                    position: relative;
+                    z-index: 1;
                 }
 
                 .cta-button {
-                    background: linear-gradient(45deg, ${this.config.buttonColor}, ${this.config.buttonColor}dd);
+                    background: ${this.settings.ctaButtonColor};
                     border: none;
                     padding: 18px 40px;
                     border-radius: 50px;
-                    color: white;
-                    font-size: 18px;
+                    color: ${this.settings.buttonTextColor};
+                    font-size: ${this.settings.buttonFontSize}px;
                     font-weight: 600;
                     cursor: pointer;
                     transition: all 0.3s ease;
@@ -251,6 +300,9 @@ class ExitIntentPopup extends HTMLElement {
                     box-shadow: 0 8px 25px rgba(58, 123, 213, 0.4);
                     text-transform: uppercase;
                     letter-spacing: 1px;
+                    font-family: ${this.settings.fontFamily}, sans-serif;
+                    position: relative;
+                    z-index: 1;
                 }
 
                 .cta-button:hover {
@@ -260,14 +312,17 @@ class ExitIntentPopup extends HTMLElement {
 
                 .no-thanks {
                     background: transparent;
-                    border: 2px solid rgba(255, 255, 255, 0.3);
+                    border: 2px solid ${this.settings.noThanksBorderColor};
                     padding: 12px 25px;
                     border-radius: 25px;
-                    color: white;
-                    font-size: 14px;
+                    color: ${this.settings.noThanksTextColor};
+                    font-size: ${this.settings.noThanksFontSize}px;
                     cursor: pointer;
                     transition: all 0.3s ease;
                     margin: 10px;
+                    font-family: ${this.settings.fontFamily}, sans-serif;
+                    position: relative;
+                    z-index: 1;
                 }
 
                 .no-thanks:hover {
@@ -276,10 +331,14 @@ class ExitIntentPopup extends HTMLElement {
                 }
 
                 .urgency-text {
-                    font-size: 14px;
+                    font-size: ${this.settings.urgencyFontSize}px;
                     margin-top: 15px;
                     opacity: 0.8;
                     font-style: italic;
+                    font-family: ${this.settings.fontFamily}, sans-serif;
+                    color: ${this.settings.textColor};
+                    position: relative;
+                    z-index: 1;
                 }
 
                 /* Mobile Responsiveness */
@@ -292,21 +351,21 @@ class ExitIntentPopup extends HTMLElement {
                     }
 
                     .popup-title {
-                        font-size: 24px;
+                        font-size: ${Math.max(this.settings.titleFontSize - 4, 18)}px;
                     }
 
                     .popup-subtitle {
-                        font-size: 16px;
+                        font-size: ${Math.max(this.settings.subtitleFontSize - 2, 14)}px;
                     }
 
                     .discount-badge {
-                        font-size: 20px;
+                        font-size: ${Math.max(this.settings.discountBadgeFontSize - 4, 18)}px;
                         padding: 12px 25px;
                     }
 
                     .cta-button {
                         padding: 15px 30px;
-                        font-size: 16px;
+                        font-size: ${Math.max(this.settings.buttonFontSize - 2, 14)}px;
                         width: 100%;
                         margin: 15px 0 5px 0;
                     }
@@ -317,7 +376,7 @@ class ExitIntentPopup extends HTMLElement {
                     }
 
                     .popup-icon {
-                        font-size: 50px;
+                        font-size: ${Math.max(this.settings.iconSize - 10, 40)}px;
                     }
                 }
 
@@ -327,11 +386,11 @@ class ExitIntentPopup extends HTMLElement {
                     }
 
                     .popup-title {
-                        font-size: 22px;
+                        font-size: ${Math.max(this.settings.titleFontSize - 6, 16)}px;
                     }
 
                     .discount-badge {
-                        font-size: 18px;
+                        font-size: ${Math.max(this.settings.discountBadgeFontSize - 6, 16)}px;
                     }
                 }
 
@@ -345,81 +404,30 @@ class ExitIntentPopup extends HTMLElement {
                 <div class="exit-popup">
                     <button class="close-btn" id="closeBtn">&times;</button>
                     
-                    <div class="popup-icon">${this.config.popupIcon}</div>
+                    <div class="popup-icon">${this.settings.popupIcon}</div>
                     
-                    <h2 class="popup-title">${this.config.popupTitle}</h2>
+                    <h2 class="popup-title">${this.settings.popupTitle}</h2>
                     
-                    <p class="popup-subtitle">${this.config.popupSubtitle}</p>
+                    <p class="popup-subtitle">${this.settings.popupSubtitle}</p>
                     
-                    <div class="discount-badge">${this.config.discount}</div>
+                    <div class="discount-badge">${this.settings.discountText}</div>
                     
-                    <p class="popup-description">${this.config.popupDescription}</p>
+                    <p class="popup-description">${this.settings.popupDescription}</p>
                     
-                    <button class="cta-button" id="ctaBtn">${this.config.ctaText}</button>
+                    <button class="cta-button" id="ctaBtn">${this.settings.ctaButtonText}</button>
                     <br>
-                    <button class="no-thanks" id="noThanksBtn">${this.config.noThanksText}</button>
+                    <button class="no-thanks" id="noThanksBtn">${this.settings.noThanksText}</button>
                     
-                    <p class="urgency-text">⏰ Limited time offer - expires in ${this.config.urgencyTime}!</p>
+                    <p class="urgency-text">${this.settings.urgencyText}</p>
                 </div>
             </div>
         `;
     }
 
     updatePopupContent() {
-        // Update text content elements
-        const titleElement = this.querySelector('.popup-title');
-        const subtitleElement = this.querySelector('.popup-subtitle');
-        const discountBadge = this.querySelector('.discount-badge');
-        const description = this.querySelector('.popup-description');
-        const ctaButton = this.querySelector('#ctaBtn');
-        const noThanksButton = this.querySelector('#noThanksBtn');
-        const urgencyText = this.querySelector('.urgency-text');
-        const iconElement = this.querySelector('.popup-icon');
-
-        if (titleElement) {
-            titleElement.textContent = this.config.popupTitle;
-        }
-
-        if (subtitleElement) {
-            subtitleElement.textContent = this.config.popupSubtitle;
-        }
-
-        if (discountBadge) {
-            discountBadge.textContent = this.config.discount;
-        }
-
-        if (description) {
-            description.textContent = this.config.popupDescription;
-        }
-
-        if (ctaButton) {
-            ctaButton.textContent = this.config.ctaText;
-        }
-
-        if (noThanksButton) {
-            noThanksButton.textContent = this.config.noThanksText;
-        }
-
-        if (urgencyText) {
-            urgencyText.innerHTML = `⏰ Limited time offer - expires in ${this.config.urgencyTime}!`;
-        }
-
-        if (iconElement) {
-            iconElement.textContent = this.config.popupIcon;
-        }
-    }
-
-    updatePopupStyles() {
-        const popup = this.querySelector('.exit-popup');
-        const ctaButton = this.querySelector('.cta-button');
-        
-        if (popup) {
-            popup.style.background = `linear-gradient(135deg, ${this.config.backgroundColor} 0%, ${this.config.backgroundColor}dd 100%)`;
-        }
-        
-        if (ctaButton) {
-            ctaButton.style.background = `linear-gradient(45deg, ${this.config.buttonColor}, ${this.config.buttonColor}dd)`;
-        }
+        // Re-render the entire popup with new settings (this is the key!)
+        this.renderPopup();
+        this.setupEventListeners();
     }
 
     setupEventListeners() {
@@ -428,33 +436,61 @@ class ExitIntentPopup extends HTMLElement {
         const ctaBtn = this.querySelector('#ctaBtn');
         const noThanksBtn = this.querySelector('#noThanksBtn');
 
+        // Enhanced event binding with error handling
         if (closeBtn) {
-            closeBtn.addEventListener('click', () => this.closePopup());
+            closeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Close button clicked');
+                this.closePopup();
+            });
+        } else {
+            console.error('Close button not found');
         }
 
         if (ctaBtn) {
-            ctaBtn.addEventListener('click', () => this.claimOffer());
+            ctaBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('CTA button clicked');
+                this.claimOffer();
+            });
+        } else {
+            console.error('CTA button not found');
         }
 
         if (noThanksBtn) {
-            noThanksBtn.addEventListener('click', () => this.closePopup());
+            noThanksBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('No Thanks button clicked');
+                this.closePopup();
+            });
+        } else {
+            console.error('No Thanks button not found');
         }
 
         // Close when clicking outside
         if (overlay) {
             overlay.addEventListener('click', (e) => {
                 if (e.target === overlay) {
+                    console.log('Overlay clicked - closing popup');
                     this.closePopup();
                 }
             });
         }
 
         // Keyboard support
-        document.addEventListener('keydown', (e) => {
+        const handleKeyDown = (e) => {
             if (e.key === 'Escape' && this.popupShown) {
+                console.log('Escape key pressed - closing popup');
                 this.closePopup();
             }
-        });
+        };
+        
+        // Clean up previous listener
+        document.removeEventListener('keydown', handleKeyDown);
+        document.addEventListener('keydown', handleKeyDown);
     }
 
     initializeExitIntent() {
@@ -497,11 +533,35 @@ class ExitIntentPopup extends HTMLElement {
             
             this.lastScrollTop = scrollTop;
         });
+
+        // Easy testing triggers
+        document.addEventListener('dblclick', () => {
+            if (!this.popupShown && !this.popupClosed) {
+                this.showExitPopup();
+            }
+        });
+
+        // Inactivity timer for testing
+        let inactivityTimer;
+        const resetInactivityTimer = () => {
+            clearTimeout(inactivityTimer);
+            if (!this.popupShown && !this.popupClosed) {
+                inactivityTimer = setTimeout(() => {
+                    this.showExitPopup();
+                }, 10000); // 10 seconds of inactivity
+            }
+        };
+
+        ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(event => {
+            document.addEventListener(event, resetInactivityTimer, true);
+        });
+
+        resetInactivityTimer();
     }
 
     showExitPopup() {
         const now = Date.now();
-        if (now - this.lastTrigger > 2000 && !this.popupShown && !this.popupClosed) { // 2 second throttle
+        if (now - this.lastTrigger > 2000 && !this.popupShown && !this.popupClosed) {
             this.lastTrigger = now;
             const overlay = this.querySelector('#exitPopupOverlay');
             if (overlay) {
@@ -513,15 +573,14 @@ class ExitIntentPopup extends HTMLElement {
                     bubbles: true,
                     detail: { 
                         timestamp: now,
-                        config: this.config 
+                        settings: this.settings 
                     }
                 }));
 
                 // Track with Google Analytics if available
                 if (typeof gtag !== 'undefined') {
                     gtag('event', 'exit_intent_popup_shown', {
-                        discount: this.config.discount,
-                        coupon_code: this.config.couponCode
+                        coupon_code: this.settings.couponCode
                     });
                 }
             }
@@ -539,16 +598,13 @@ class ExitIntentPopup extends HTMLElement {
                 bubbles: true,
                 detail: { 
                     timestamp: Date.now(),
-                    config: this.config 
+                    settings: this.settings 
                 }
             }));
 
             // Track with Google Analytics if available
             if (typeof gtag !== 'undefined') {
-                gtag('event', 'exit_intent_popup_closed', {
-                    discount: this.config.discount,
-                    coupon_code: this.config.couponCode
-                });
+                gtag('event', 'exit_intent_popup_closed');
             }
         }
     }
@@ -558,31 +614,49 @@ class ExitIntentPopup extends HTMLElement {
         this.dispatchEvent(new CustomEvent('offer-claimed', {
             bubbles: true,
             detail: { 
-                couponCode: this.config.couponCode,
-                discount: this.config.discount,
+                couponCode: this.settings.couponCode,
                 timestamp: Date.now(),
-                config: this.config
+                settings: this.settings
             }
         }));
 
         // Track with Google Analytics if available
         if (typeof gtag !== 'undefined') {
             gtag('event', 'exit_intent_offer_claimed', {
-                coupon_code: this.config.couponCode,
-                discount: this.config.discount
+                coupon_code: this.settings.couponCode
             });
         }
 
-        if (this.config.redirectUrl && this.config.redirectUrl.trim() !== '') {
-            window.location.href = this.config.redirectUrl;
-        } else {
-            alert(`Discount code ${this.config.couponCode} has been applied! Redirecting to checkout...`);
-        }
-        
+        // Close popup first
         this.closePopup();
+
+        // Enhanced redirect handling
+        if (this.settings.ctaButtonLink && this.settings.ctaButtonLink.trim() !== '') {
+            try {
+                let url = this.settings.ctaButtonLink.trim();
+                
+                // Smart URL handling
+                if (!url.match(/^https?:\/\//)) {
+                    if (url.includes('.')) {
+                        url = 'https://' + url;
+                    } else {
+                        url = '/' + url.replace(/^\/+/, '');
+                    }
+                }
+                
+                console.log('Redirecting to:', url);
+                window.location.href = url;
+                
+            } catch (error) {
+                console.error('Error with redirect URL:', error);
+                alert(`Discount code ${this.settings.couponCode} has been applied! Please manually navigate to complete your purchase.`);
+            }
+        } else {
+            alert(`Discount code ${this.settings.couponCode} has been applied!`);
+        }
     }
 
-    // Public API methods for manual control
+    // Public API methods
     triggerPopup() {
         this.showExitPopup();
     }
@@ -594,50 +668,28 @@ class ExitIntentPopup extends HTMLElement {
     }
 
     updateConfiguration(newConfig) {
-        this.config = { ...this.getDefaultConfig(), ...newConfig };
+        Object.assign(this.settings, newConfig);
         this.updatePopupContent();
-        this.updatePopupStyles();
     }
 
     getConfiguration() {
-        return { ...this.config };
+        return { ...this.settings };
     }
 
-    // Getters for individual config properties
-    get discount() {
-        return this.config.discount;
-    }
+    // Getters for individual properties
+    get popupTitle() { return this.settings.popupTitle; }
+    get popupSubtitle() { return this.settings.popupSubtitle; }
+    get discountText() { return this.settings.discountText; }
+    get couponCode() { return this.settings.couponCode; }
+    get popupDescription() { return this.settings.popupDescription; }
+    get ctaButtonText() { return this.settings.ctaButtonText; }
+    get noThanksText() { return this.settings.noThanksText; }
+    get urgencyText() { return this.settings.urgencyText; }
+    get ctaButtonLink() { return this.settings.ctaButtonLink; }
 
-    get couponCode() {
-        return this.config.couponCode;
-    }
-
-    get ctaText() {
-        return this.config.ctaText;
-    }
-
-    get redirectUrl() {
-        return this.config.redirectUrl;
-    }
-
-    get urgencyTime() {
-        return this.config.urgencyTime;
-    }
-
-    get popupTitle() {
-        return this.config.popupTitle;
-    }
-
-    get popupSubtitle() {
-        return this.config.popupSubtitle;
-    }
-
-    get backgroundColor() {
-        return this.config.backgroundColor;
-    }
-
-    get buttonColor() {
-        return this.config.buttonColor;
+    disconnectedCallback() {
+        // Clean up event listeners if needed
+        console.log('Exit intent popup disconnected');
     }
 }
 
