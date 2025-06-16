@@ -18,9 +18,7 @@ class ExitIntentPopupElement extends HTMLElement {
             descriptionFontSize: 16,
             buttonFontSize: 18,
             urgencyFontSize: 14,
-            preset: 'modern-blue',
-            delayTime: 3,
-            scrollPercentage: 10
+            preset: 'modern-blue'
         };
         this.presets = {
             'modern-blue': {
@@ -410,20 +408,11 @@ class ExitIntentPopupElement extends HTMLElement {
     }
 
     initializeExitIntent() {
-        // Desktop exit intent detection
+        // Desktop exit intent detection - mouse movement toward top of browser
         document.addEventListener('mouseleave', (e) => {
-            if (e.clientY <= 0) {
-                this.mouseLeftWindow = true;
-                setTimeout(() => {
-                    if (this.mouseLeftWindow) {
-                        this.showExitPopup();
-                    }
-                }, 100);
+            if (e.clientY <= 0 && !this.popupShown && !this.popupClosed) {
+                this.showExitPopup();
             }
-        });
-
-        document.addEventListener('mouseenter', () => {
-            this.mouseLeftWindow = false;
         });
 
         // Mobile-specific exit intent (scroll to top quickly)
@@ -432,29 +421,38 @@ class ExitIntentPopupElement extends HTMLElement {
             
             if (scrollTop < this.lastScrollTop && scrollTop < 100 && this.lastScrollTop > 200) {
                 if (!this.popupShown && !this.popupClosed) {
-                    setTimeout(() => {
-                        this.showExitPopup();
-                    }, 500);
+                    this.showExitPopup();
                 }
             }
             
             this.lastScrollTop = scrollTop;
         });
 
-        // Time-based fallback
+        // Fallback trigger for testing - shows after 5 seconds
         setTimeout(() => {
             if (!this.popupShown && !this.popupClosed) {
                 this.showExitPopup();
             }
-        }, this.settings.delayTime * 1000);
+        }, 5000);
+
+        // Additional beforeunload detection
+        window.addEventListener('beforeunload', (e) => {
+            if (!this.popupShown && !this.popupClosed) {
+                this.showExitPopup();
+            }
+        });
     }
 
     showExitPopup() {
         const now = Date.now();
-        if (now - this.lastTrigger > 2000 && !this.popupShown && !this.popupClosed) {
+        if (now - this.lastTrigger > 1000 && !this.popupShown && !this.popupClosed) {
             this.lastTrigger = now;
-            this.querySelector('#exitPopupOverlay').classList.add('show');
-            this.popupShown = true;
+            const overlay = this.querySelector('#exitPopupOverlay');
+            if (overlay) {
+                overlay.classList.add('show');
+                this.popupShown = true;
+                console.log('Exit intent popup shown'); // For debugging
+            }
         }
     }
 
