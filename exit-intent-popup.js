@@ -68,17 +68,13 @@ class ExitIntentPopup extends HTMLElement {
             popupSubtitle: "You're about to leave, but we have an exclusive offer just for you!",
             backgroundColor: "#667eea",
             buttonColor: "#00d2ff",
-            popupDescription: "Use code {couponCode} and get instant {discount} discount on your entire order. This exclusive offer is only available for the next few minutes!",
-            popupIcon: "🎉"
+            popupDescription: "Use code SAVE25 and get instant 25% OFF discount on your entire order. This exclusive offer is only available for the next few minutes!",
+            popupIcon: "🎉",
+            noThanksText: "No thanks, I'll pass"
         };
     }
 
     render() {
-        // Process description template
-        const processedDescription = this.config.popupDescription
-            .replace('{couponCode}', this.config.couponCode)
-            .replace('{discount}', this.config.discount);
-
         this.innerHTML = `
             <style>
                 :host {
@@ -357,11 +353,11 @@ class ExitIntentPopup extends HTMLElement {
                     
                     <div class="discount-badge">${this.config.discount}</div>
                     
-                    <p class="popup-description">${processedDescription}</p>
+                    <p class="popup-description">${this.config.popupDescription}</p>
                     
                     <button class="cta-button" id="ctaBtn">${this.config.ctaText}</button>
                     <br>
-                    <button class="no-thanks" id="noThanksBtn">No thanks, I'll pass</button>
+                    <button class="no-thanks" id="noThanksBtn">${this.config.noThanksText}</button>
                     
                     <p class="urgency-text">⏰ Limited time offer - expires in ${this.config.urgencyTime}!</p>
                 </div>
@@ -376,6 +372,7 @@ class ExitIntentPopup extends HTMLElement {
         const discountBadge = this.querySelector('.discount-badge');
         const description = this.querySelector('.popup-description');
         const ctaButton = this.querySelector('#ctaBtn');
+        const noThanksButton = this.querySelector('#noThanksBtn');
         const urgencyText = this.querySelector('.urgency-text');
         const iconElement = this.querySelector('.popup-icon');
 
@@ -392,14 +389,15 @@ class ExitIntentPopup extends HTMLElement {
         }
 
         if (description) {
-            const processedDescription = this.config.popupDescription
-                .replace('{couponCode}', this.config.couponCode)
-                .replace('{discount}', this.config.discount);
-            description.innerHTML = processedDescription.replace(this.config.couponCode, `<strong>${this.config.couponCode}</strong>`);
+            description.textContent = this.config.popupDescription;
         }
 
         if (ctaButton) {
             ctaButton.textContent = this.config.ctaText;
+        }
+
+        if (noThanksButton) {
+            noThanksButton.textContent = this.config.noThanksText;
         }
 
         if (urgencyText) {
