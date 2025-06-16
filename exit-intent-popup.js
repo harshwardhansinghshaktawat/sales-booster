@@ -1,3 +1,5 @@
+// File name: exit-intent-popup.js
+// Custom Element Tag: <exit-intent-popup></exit-intent-popup>
 
 class ExitIntentPopup extends HTMLElement {
     constructor() {
@@ -45,6 +47,14 @@ class ExitIntentPopup extends HTMLElement {
         this.renderPopup();
         this.setupEventListeners();
         this.initializeExitIntent();
+        
+        // Make testing method available on window for debugging
+        window.testExitPopup = () => {
+            console.log('Testing exit popup...');
+            this.showExitPopup();
+        };
+        
+        console.log('Exit-intent popup loaded. Test with: testExitPopup()');
     }
 
     static get observedAttributes() {
@@ -392,12 +402,40 @@ class ExitIntentPopup extends HTMLElement {
     }
 
     initializeExitIntent() {
-        // Desktop exit intent detection
-        document.addEventListener('mouseleave', (e) => {
-            if (e.clientY <= 0) {
+        // More reliable desktop exit intent detection
+        let isMouseOver = true;
+        
+        // Track mouse movement toward the top of the page
+        document.addEventListener('mousemove', (e) => {
+            isMouseOver = true;
+            
+            // Detect when mouse moves close to the top (within 50px) and user was scrolled down
+            if (e.clientY <= 50 && window.pageYOffset > 100) {
+                if (!this.popupShown && !this.popupClosed) {
+                    this.showExitPopup();
+                }
+            }
+        });
+
+        // Detect when mouse leaves the document (more reliable than mouseleave)
+        document.addEventListener('mouseout', (e) => {
+            // Check if mouse is leaving toward the top of the browser
+            if (!e.relatedTarget && e.clientY <= 10) {
                 this.mouseLeftWindow = true;
                 setTimeout(() => {
-                    if (this.mouseLeftWindow) {
+                    if (this.mouseLeftWindow && !this.popupShown && !this.popupClosed) {
+                        this.showExitPopup();
+                    }
+                }, 100);
+            }
+        });
+
+        // Traditional mouseleave with more lenient detection
+        document.addEventListener('mouseleave', (e) => {
+            if (e.clientY <= 10 || e.clientY <= e.target.offsetTop) {
+                this.mouseLeftWindow = true;
+                setTimeout(() => {
+                    if (this.mouseLeftWindow && !this.popupShown && !this.popupClosed) {
                         this.showExitPopup();
                     }
                 }, 100);
@@ -406,30 +444,76 @@ class ExitIntentPopup extends HTMLElement {
 
         document.addEventListener('mouseenter', () => {
             this.mouseLeftWindow = false;
+            isMouseOver = true;
         });
 
-        // Mobile and desktop beforeunload detection
+        // Visibility change detection (tab switching, minimizing)
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && !this.popupShown && !this.popupClosed) {
+                // Small delay to catch window close attempts
+                setTimeout(() => {
+                    if (document.hidden) {
+                        this.showExitPopup();
+                    }
+                }, 300);
+            }
+        });
+
+        // Enhanced beforeunload detection
         window.addEventListener('beforeunload', (e) => {
             if (!this.popupShown && !this.popupClosed) {
                 this.showExitPopup();
-                return 'Are you sure you want to leave? You have an exclusive discount waiting!';
+                e.preventDefault();
+                e.returnValue = 'Are you sure you want to leave? You have an exclusive discount waiting!';
+                return e.returnValue;
             }
         });
 
-        // Mobile-specific exit intent (scroll to top quickly)
+        // Mobile-specific exit intent (aggressive scroll detection)
+        let scrollTimer = null;
         window.addEventListener('scroll', () => {
             let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
             
+            // Clear previous timer
+            if (scrollTimer) {
+                clearTimeout(scrollTimer);
+            }
+            
+            // Quick scroll to top detection
             if (scrollTop < this.lastScrollTop && scrollTop < 100 && this.lastScrollTop > 200) {
-                // User scrolled up quickly to top - possible exit intent on mobile
                 if (!this.popupShown && !this.popupClosed) {
-                    setTimeout(() => {
-                        this.showExitPopup();
-                    }, 500);
+                    this.showExitPopup();
                 }
             }
             
+            // Fast upward scroll detection
+            if (scrollTop < this.lastScrollTop - 100 && !this.popupShown && !this.popupClosed) {
+                scrollTimer = setTimeout(() => {
+                    this.showExitPopup();
+                }, 300);
+            }
+            
             this.lastScrollTop = scrollTop;
+        });
+
+        // Fallback: detect when user is inactive then moves mouse rapidly toward top
+        let inactivityTimer = null;
+        let wasInactive = false;
+        
+        document.addEventListener('mousemove', (e) => {
+            clearTimeout(inactivityTimer);
+            
+            // If user was inactive and now moves mouse to top area rapidly
+            if (wasInactive && e.clientY <= 100 && !this.popupShown && !this.popupClosed) {
+                this.showExitPopup();
+            }
+            
+            wasInactive = false;
+            
+            // Set inactivity timer
+            inactivityTimer = setTimeout(() => {
+                wasInactive = true;
+            }, 2000);
         });
     }
 
@@ -437,19 +521,33 @@ class ExitIntentPopup extends HTMLElement {
         const now = Date.now();
         if (now - this.lastTrigger > 2000 && !this.popupShown && !this.popupClosed) { // 2 second throttle
             this.lastTrigger = now;
-            this.querySelector('#exitPopupOverlay').classList.add('show');
-            this.popupShown = true;
             
-            // Dispatch custom event for tracking
-            this.dispatchEvent(new CustomEvent('popup-shown', {
-                bubbles: true,
-                detail: { timestamp: now }
-            }));
+            console.log('Exit intent detected - showing popup'); // Debug log
+            
+            const overlay = this.querySelector('#exitPopupOverlay');
+            if (overlay) {
+                overlay.classList.add('show');
+                this.popupShown = true;
+                
+                // Dispatch custom event for tracking
+                this.dispatchEvent(new CustomEvent('popup-shown', {
+                    bubbles: true,
+                    detail: { timestamp: now }
+                }));
 
-            // Track with Google Analytics if available
-            if (typeof gtag !== 'undefined') {
-                gtag('event', 'exit_intent_popup_shown');
+                // Track with Google Analytics if available
+                if (typeof gtag !== 'undefined') {
+                    gtag('event', 'exit_intent_popup_shown');
+                }
+            } else {
+                console.error('Popup overlay not found');
             }
+        } else {
+            console.log('Popup not shown - conditions not met:', {
+                timeSinceLastTrigger: now - this.lastTrigger,
+                popupShown: this.popupShown,
+                popupClosed: this.popupClosed
+            });
         }
     }
 
