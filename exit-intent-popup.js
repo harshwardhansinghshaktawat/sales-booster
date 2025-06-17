@@ -24,7 +24,10 @@ class ExitIntentPopup extends HTMLElement {
 
   connectedCallback() {
     this.render();
-    this.setupExitIntentDetection();
+    // Delay setup to ensure everything is ready
+    setTimeout(() => {
+      this.setupExitIntentDetection();
+    }, 100);
   }
 
   disconnectedCallback() {
@@ -32,10 +35,25 @@ class ExitIntentPopup extends HTMLElement {
   }
 
   setupExitIntentDetection() {
+    console.log('Setting up exit intent detection');
+    
+    // Test trigger - press P key to test popup (for development)
+    this.testHandler = (e) => {
+      if (e.key === 'p' || e.key === 'P') {
+        console.log('P key pressed - triggering popup');
+        if (!this.exitIntentTriggered) {
+          this.exitIntentTriggered = true;
+          this.showPopup();
+        }
+      }
+    };
+
     // Detect when mouse leaves the top of the viewport (exit intent)
     this.mouseLeaveHandler = (event) => {
+      console.log('Mouse leave detected', event.clientY);
       // Check if mouse is leaving through the top of the viewport
       if (event.clientY <= 0 && !this.exitIntentTriggered) {
+        console.log('Exit intent triggered via mouse leave');
         this.exitIntentTriggered = true;
         this.showPopup();
       }
@@ -44,22 +62,17 @@ class ExitIntentPopup extends HTMLElement {
     // Additional detection for fast mouse movement towards top
     this.mouseMoveHandler = (event) => {
       if (event.clientY <= 50 && event.movementY < -10 && !this.exitIntentTriggered) {
+        console.log('Exit intent triggered via fast upward movement');
         this.exitIntentTriggered = true;
         this.showPopup();
       }
     };
 
-    // Test trigger - press P key to test popup (for development)
-    this.testHandler = (e) => {
-      if ((e.key === 'p' || e.key === 'P') && !this.exitIntentTriggered) {
-        this.exitIntentTriggered = true;
-        this.showPopup();
-      }
-    };
-
+    document.addEventListener('keydown', this.testHandler);
     document.addEventListener('mouseleave', this.mouseLeaveHandler);
     document.addEventListener('mousemove', this.mouseMoveHandler);
-    document.addEventListener('keydown', this.testHandler);
+    
+    console.log('Exit intent listeners attached');
   }
 
   removeExitIntentDetection() {
@@ -69,29 +82,39 @@ class ExitIntentPopup extends HTMLElement {
     if (this.mouseMoveHandler) {
       document.removeEventListener('mousemove', this.mouseMoveHandler);
     }
-    // Remove test handler
-    document.removeEventListener('keydown', this.testHandler);
+    if (this.testHandler) {
+      document.removeEventListener('keydown', this.testHandler);
+    }
   }
 
   showPopup() {
+    console.log('showPopup called, isPopupShown:', this.isPopupShown);
+    
     if (this.isPopupShown) return;
     
     const popup = this.shadowRoot.querySelector('.exit-popup');
     const overlay = this.shadowRoot.querySelector('.popup-overlay');
     
+    console.log('Popup elements found:', { popup, overlay });
+    
     if (popup && overlay) {
       this.isPopupShown = true;
       overlay.style.display = 'flex';
+      
+      console.log('Popup display set to flex');
       
       // Animate popup in
       setTimeout(() => {
         overlay.classList.add('show');
         popup.classList.add('show');
+        console.log('Popup animation classes added');
       }, 10);
     }
   }
 
   hidePopup() {
+    console.log('hidePopup called');
+    
     const popup = this.shadowRoot.querySelector('.exit-popup');
     const overlay = this.shadowRoot.querySelector('.popup-overlay');
     
@@ -102,22 +125,67 @@ class ExitIntentPopup extends HTMLElement {
       setTimeout(() => {
         overlay.style.display = 'none';
         this.isPopupShown = false;
+        console.log('Popup hidden');
       }, 300);
     }
   }
 
   handleButtonClick() {
+    console.log('handleButtonClick called');
+    
     const buttonLink = this.getAttribute('button-link') || '#';
+    console.log('Button link:', buttonLink);
+    
     if (buttonLink && buttonLink !== '#' && buttonLink.trim() !== '') {
+      console.log('Opening link in new tab:', buttonLink);
       window.open(buttonLink, '_blank');
     }
     this.hidePopup();
   }
 
   handleOverlayClick(event) {
+    console.log('handleOverlayClick called', event.target);
+    
     if (event.target.classList.contains('popup-overlay')) {
+      console.log('Clicking overlay background - hiding popup');
       this.hidePopup();
     }
+  }
+
+  setupPopupEventListeners() {
+    // Use requestAnimationFrame to ensure DOM is ready
+    requestAnimationFrame(() => {
+      const overlay = this.shadowRoot.querySelector('.popup-overlay');
+      const closeBtn = this.shadowRoot.querySelector('.close-btn');
+      const ctaButton = this.shadowRoot.querySelector('.cta-button');
+
+      console.log('Setting up popup event listeners:', { overlay, closeBtn, ctaButton });
+
+      if (overlay) {
+        overlay.addEventListener('click', (event) => {
+          console.log('Overlay clicked');
+          this.handleOverlayClick(event);
+        });
+      }
+      
+      if (closeBtn) {
+        closeBtn.addEventListener('click', (event) => {
+          console.log('Close button clicked');
+          event.preventDefault();
+          event.stopPropagation();
+          this.hidePopup();
+        });
+      }
+      
+      if (ctaButton) {
+        ctaButton.addEventListener('click', (event) => {
+          console.log('CTA button clicked');
+          event.preventDefault();
+          event.stopPropagation();
+          this.handleButtonClick();
+        });
+      }
+    });
   }
 
   render() {
@@ -326,24 +394,8 @@ class ExitIntentPopup extends HTMLElement {
       </div>
     `;
 
-    // Add event listeners after render
-    setTimeout(() => {
-      const overlay = this.shadowRoot.querySelector('.popup-overlay');
-      const closeBtn = this.shadowRoot.querySelector('.close-btn');
-      const ctaButton = this.shadowRoot.querySelector('.cta-button');
-
-      if (overlay) {
-        overlay.addEventListener('click', (event) => this.handleOverlayClick(event));
-      }
-      
-      if (closeBtn) {
-        closeBtn.addEventListener('click', () => this.hidePopup());
-      }
-      
-      if (ctaButton) {
-        ctaButton.addEventListener('click', () => this.handleButtonClick());
-      }
-    }, 0);
+    // Setup event listeners with better timing
+    this.setupPopupEventListeners();
   }
 }
 
