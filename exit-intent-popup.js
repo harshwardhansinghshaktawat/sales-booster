@@ -1,3 +1,7 @@
+// File name: exit-intent-popup-blocks-fixed.js
+// Custom Element Tag: <exit-intent-popup></exit-intent-popup>
+// Designed for Wix Blocks with maximum editability
+
 class ExitIntentPopup extends HTMLElement {
     constructor() {
         super();
@@ -6,6 +10,7 @@ class ExitIntentPopup extends HTMLElement {
         this.popupClosed = false;
         this.lastTrigger = 0;
         this.lastScrollTop = 0;
+        this.isConfigured = false;
         
         // Default settings with maximum editability
         this.settings = {
@@ -21,7 +26,7 @@ class ExitIntentPopup extends HTMLElement {
             popupIcon: '🎉',
             
             // Functionality
-            ctaButtonLink: '', // Added this property to default settings
+            ctaButtonLink: '',
             
             // Typography - Fully Customizable
             fontFamily: 'Arial',
@@ -67,16 +72,10 @@ class ExitIntentPopup extends HTMLElement {
         });
 
         this.renderPopup();
-        // IMPORTANT: Initial setupEventListeners call
-        this.setupEventListeners(); 
         this.initializeExitIntent();
         
-        // Demo trigger for testing - show popup after 3 seconds if no config
-        setTimeout(() => {
-            if (!this.hasAttribute('config') || this.getAttribute('config') === '') {
-                this.showExitPopup();
-            }
-        }, 3000);
+        // Wait for configuration before setting up - NO AUTO TRIGGER
+        console.log('Exit intent popup connected, waiting for configuration...');
     }
 
     static get observedAttributes() {
@@ -90,15 +89,14 @@ class ExitIntentPopup extends HTMLElement {
                     const newConfig = JSON.parse(newValue);
                     // Merge new config with existing settings
                     Object.assign(this.settings, newConfig);
-                    // Update content and re-attach listeners
-                    this.updatePopupContent(); 
+                    this.isConfigured = true;
+                    console.log('Configuration received:', this.settings);
+                    console.log('CTA Button Link:', this.settings.ctaButtonLink);
+                    this.updatePopupContent();
                 } catch (e) {
                     console.warn('Invalid JSON in config attribute:', e);
                     console.warn('Invalid JSON string:', newValue);
                 }
-            } else {
-                // Use defaults if no config provided, and update content/listeners
-                this.updatePopupContent();
             }
         }
     }
@@ -400,7 +398,7 @@ class ExitIntentPopup extends HTMLElement {
 
             <div class="exit-popup-overlay" id="exitPopupOverlay">
                 <div class="exit-popup">
-                    <button class="close-btn" id="closeBtn">&times;</button>
+                    <button class="close-btn" id="closeBtn" type="button">&times;</button>
                     
                     <div class="popup-icon">${this.settings.popupIcon}</div>
                     
@@ -412,109 +410,125 @@ class ExitIntentPopup extends HTMLElement {
                     
                     <p class="popup-description">${this.settings.popupDescription}</p>
                     
-                    <button class="cta-button" id="ctaBtn">${this.settings.ctaButtonText}</button>
+                    <button class="cta-button" id="ctaBtn" type="button">${this.settings.ctaButtonText}</button>
                     <br>
-                    <button class="no-thanks" id="noThanksBtn">${this.settings.noThanksText}</button>
+                    <button class="no-thanks" id="noThanksBtn" type="button">${this.settings.noThanksText}</button>
                     
                     <p class="urgency-text">${this.settings.urgencyText}</p>
                 </div>
             </div>
         `;
+        
+        // Set up event listeners immediately after rendering
+        this.setupEventListeners();
     }
 
     updatePopupContent() {
-        // Re-render the entire popup with new settings (this is the key!)
-        this.renderPopup();
-        // IMPORTANT: Re-attach event listeners after re-rendering
-        this.setupEventListeners(); 
+        console.log('Updating popup content with new settings');
+        
+        // Update text content without re-rendering entire popup
+        const titleEl = this.querySelector('.popup-title');
+        const subtitleEl = this.querySelector('.popup-subtitle');
+        const discountEl = this.querySelector('.discount-badge');
+        const descEl = this.querySelector('.popup-description');
+        const ctaEl = this.querySelector('#ctaBtn');
+        const noThanksEl = this.querySelector('#noThanksBtn');
+        const urgencyEl = this.querySelector('.urgency-text');
+        const iconEl = this.querySelector('.popup-icon');
+        
+        if (titleEl) titleEl.textContent = this.settings.popupTitle;
+        if (subtitleEl) subtitleEl.textContent = this.settings.popupSubtitle;
+        if (discountEl) discountEl.textContent = this.settings.discountText;
+        if (descEl) descEl.innerHTML = this.settings.popupDescription;
+        if (ctaEl) ctaEl.textContent = this.settings.ctaButtonText;
+        if (noThanksEl) noThanksEl.textContent = this.settings.noThanksText;
+        if (urgencyEl) urgencyEl.textContent = this.settings.urgencyText;
+        if (iconEl) iconEl.textContent = this.settings.popupIcon;
+        
+        // Update styles that might have changed
+        this.updateStyles();
+    }
+
+    updateStyles() {
+        // Update dynamic styles
+        const popup = this.querySelector('.exit-popup');
+        const titleEl = this.querySelector('.popup-title');
+        const subtitleEl = this.querySelector('.popup-subtitle');
+        const ctaEl = this.querySelector('#ctaBtn');
+        
+        if (popup) {
+            popup.style.background = this.settings.backgroundGradient;
+            popup.style.color = this.settings.textColor;
+        }
+        
+        if (titleEl) {
+            titleEl.style.fontSize = this.settings.titleFontSize + 'px';
+            titleEl.style.color = this.settings.textColor;
+        }
+        
+        if (subtitleEl) {
+            subtitleEl.style.fontSize = this.settings.subtitleFontSize + 'px';
+            subtitleEl.style.color = this.settings.textColor;
+        }
+        
+        if (ctaEl) {
+            ctaEl.style.background = this.settings.ctaButtonColor;
+            ctaEl.style.fontSize = this.settings.buttonFontSize + 'px';
+            ctaEl.style.color = this.settings.buttonTextColor;
+        }
     }
 
     setupEventListeners() {
-        // Clear existing listeners before adding new ones to prevent duplicates
-        // This is crucial if setupEventListeners is called multiple times without removing old ones.
-        // A simpler way with innerHTML (which replaces the element) is to just re-attach.
-        // For robustness, you might want to store references and remove them, but given your renderPopup,
-        // just finding elements and attaching is sufficient as they are new elements.
-
-        const overlay = this.querySelector('#exitPopupOverlay');
-        const closeBtn = this.querySelector('#closeBtn');
-        const ctaBtn = this.querySelector('#ctaBtn');
-        const noThanksBtn = this.querySelector('#noThanksBtn');
-
-        // Ensure elements exist before adding listeners
-        if (closeBtn) {
-            closeBtn.onclick = null; // Clear previous listener (or use removeEventListener)
-            closeBtn.addEventListener('click', (e) => {
+        console.log('Setting up event listeners...');
+        
+        // Use event delegation for better reliability
+        this.addEventListener('click', (e) => {
+            const target = e.target;
+            
+            if (target.id === 'closeBtn') {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('Close button clicked');
                 this.closePopup();
-            });
-        } else {
-            console.error('Close button not found');
-        }
-
-        if (ctaBtn) {
-            ctaBtn.onclick = null; // Clear previous listener
-            ctaBtn.addEventListener('click', (e) => {
+            }
+            else if (target.id === 'ctaBtn') {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('CTA button clicked');
+                console.log('CTA button clicked, link:', this.settings.ctaButtonLink);
                 this.claimOffer();
-            });
-        } else {
-            console.error('CTA button not found');
-        }
-
-        if (noThanksBtn) {
-            noThanksBtn.onclick = null; // Clear previous listener
-            noThanksBtn.addEventListener('click', (e) => {
+            }
+            else if (target.id === 'noThanksBtn') {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('No Thanks button clicked');
                 this.closePopup();
-            });
-        } else {
-            console.error('No Thanks button not found');
-        }
+            }
+            else if (target.id === 'exitPopupOverlay') {
+                console.log('Overlay clicked - closing popup');
+                this.closePopup();
+            }
+        });
 
-        // Close when clicking outside
-        if (overlay) {
-            overlay.onclick = null; // Clear previous listener
-            overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) {
-                    console.log('Overlay clicked - closing popup');
-                    this.closePopup();
-                }
-            });
-        }
-
-        // Keyboard support - only one listener for the document is needed
-        // Avoid duplicate document listeners by checking if one exists or using a flag
-        // For simplicity, we'll keep it as is, but in a more complex app, manage it.
-        const handleKeyDown = (e) => {
+        // Keyboard support
+        document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.popupShown) {
                 console.log('Escape key pressed - closing popup');
                 this.closePopup();
             }
-        };
+        });
         
-        // It's good practice to ensure only one document-level listener exists for keydown
-        // This can be done by storing a reference to the bound function and removing it first,
-        // but given the scope, this is acceptable for now.
-        document.removeEventListener('keydown', this._boundHandleKeyDown); // Remove previous
-        this._boundHandleKeyDown = handleKeyDown; // Store for future removal
-        document.addEventListener('keydown', this._boundHandleKeyDown);
+        console.log('Event listeners set up successfully');
     }
 
     initializeExitIntent() {
+        console.log('Initializing exit intent detection...');
+        
         // Desktop exit intent detection
-        // Consider debouncing this event or limiting its frequency if performance is an issue.
         document.addEventListener('mouseleave', (e) => {
             if (e.clientY <= 0) {
                 this.mouseLeftWindow = true;
                 setTimeout(() => {
-                    if (this.mouseLeftWindow) {
+                    if (this.mouseLeftWindow && this.isConfigured) {
                         this.showExitPopup();
                     }
                 }, 100);
@@ -526,16 +540,10 @@ class ExitIntentPopup extends HTMLElement {
         });
 
         // Mobile and desktop beforeunload detection
-        // Be cautious with 'beforeunload' as it can be annoying to users and some browsers restrict its behavior.
-        // It's primarily for confirming navigation away, not triggering a popup.
-        // For a more user-friendly approach, rely on mouseleave/scroll events.
         window.addEventListener('beforeunload', (e) => {
-            if (!this.popupShown && !this.popupClosed) {
-                // The return value will trigger the browser's native "leave site?" dialog.
-                // It does NOT show your custom popup on page exit in modern browsers.
-                // The showExitPopup() call here will likely not execute before the page unloads.
-                // It's better to trigger the popup on mouseleave or scroll events.
-                return 'Are you sure you want to leave? You have an exclusive discount waiting!'; 
+            if (!this.popupShown && !this.popupClosed && this.isConfigured) {
+                this.showExitPopup();
+                return 'Are you sure you want to leave? You have an exclusive discount waiting!';
             }
         });
 
@@ -545,7 +553,7 @@ class ExitIntentPopup extends HTMLElement {
             
             if (scrollTop < this.lastScrollTop && scrollTop < 100 && this.lastScrollTop > 200) {
                 // User scrolled up quickly to top - possible exit intent on mobile
-                if (!this.popupShown && !this.popupClosed) {
+                if (!this.popupShown && !this.popupClosed && this.isConfigured) {
                     setTimeout(() => {
                         this.showExitPopup();
                     }, 500);
@@ -555,40 +563,24 @@ class ExitIntentPopup extends HTMLElement {
             this.lastScrollTop = scrollTop;
         });
 
-        // Easy testing triggers
+        // Testing trigger - double click anywhere on page
         document.addEventListener('dblclick', () => {
-            if (!this.popupShown && !this.popupClosed) {
+            if (!this.popupShown && !this.popupClosed && this.isConfigured) {
+                console.log('Double click detected - showing popup for testing');
                 this.showExitPopup();
             }
         });
-
-        // Inactivity timer for testing
-        let inactivityTimer;
-        const resetInactivityTimer = () => {
-            clearTimeout(inactivityTimer);
-            if (!this.popupShown && !this.popupClosed) {
-                inactivityTimer = setTimeout(() => {
-                    this.showExitPopup();
-                }, 10000); // 10 seconds of inactivity
-            }
-        };
-
-        ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(event => {
-            document.addEventListener(event, resetInactivityTimer, true);
-        });
-
-        resetInactivityTimer();
     }
 
     showExitPopup() {
         const now = Date.now();
-        // Add a check to prevent showing if it was just closed
-        if (now - this.lastTrigger > 2000 && !this.popupShown && !this.popupClosed) {
+        if (now - this.lastTrigger > 2000 && !this.popupShown && !this.popupClosed && this.isConfigured) {
             this.lastTrigger = now;
             const overlay = this.querySelector('#exitPopupOverlay');
             if (overlay) {
                 overlay.classList.add('show');
                 this.popupShown = true;
+                console.log('Popup shown');
                 
                 // Dispatch custom event for tracking
                 this.dispatchEvent(new CustomEvent('popup-shown', {
@@ -610,11 +602,13 @@ class ExitIntentPopup extends HTMLElement {
     }
 
     closePopup() {
+        console.log('Closing popup...');
         const overlay = this.querySelector('#exitPopupOverlay');
         if (overlay) {
             overlay.classList.remove('show');
-            this.popupShown = false; // Reset popupShown state
-            this.popupClosed = true; // Mark as explicitly closed
+            this.popupShown = false;
+            this.popupClosed = true;
+            console.log('Popup closed successfully');
             
             // Dispatch custom event
             this.dispatchEvent(new CustomEvent('popup-closed', {
@@ -633,13 +627,16 @@ class ExitIntentPopup extends HTMLElement {
     }
 
     claimOffer() {
+        console.log('Claiming offer with link:', this.settings.ctaButtonLink);
+        
         // Dispatch custom event with coupon code
         this.dispatchEvent(new CustomEvent('offer-claimed', {
             bubbles: true,
             detail: { 
                 couponCode: this.settings.couponCode,
                 timestamp: Date.now(),
-                settings: this.settings
+                settings: this.settings,
+                link: this.settings.ctaButtonLink
             }
         }));
 
@@ -660,33 +657,37 @@ class ExitIntentPopup extends HTMLElement {
                 
                 // Smart URL handling
                 if (!url.match(/^https?:\/\//)) {
-                    // Check if it's a relative path (e.g., /products/my-product)
-                    if (url.startsWith('/')) {
-                        // Already a relative path, no change needed
-                    } else if (url.includes('.')) {
-                        // Assume a domain like "example.com" and add https://
+                    if (url.includes('.') || url.startsWith('www.')) {
                         url = 'https://' + url;
+                    } else if (url.startsWith('/')) {
+                        url = window.location.origin + url;
                     } else {
-                        // Assume a path segment like "my-product" for current domain
-                        url = '/' + url;
+                        url = window.location.origin + '/' + url;
                     }
                 }
                 
                 console.log('Redirecting to:', url);
-                window.location.href = url;
+                
+                // Add a small delay to ensure popup closes smoothly
+                setTimeout(() => {
+                    window.location.href = url;
+                }, 200);
                 
             } catch (error) {
                 console.error('Error with redirect URL:', error);
                 alert(`Discount code ${this.settings.couponCode} has been applied! Please manually navigate to complete your purchase.`);
             }
         } else {
-            alert(`Discount code ${this.settings.couponCode} has been applied!`);
+            console.log('No link provided, showing coupon code alert');
+            alert(`Your discount code is: ${this.settings.couponCode}`);
         }
     }
 
     // Public API methods
     triggerPopup() {
-        this.showExitPopup();
+        if (this.isConfigured) {
+            this.showExitPopup();
+        }
     }
 
     resetPopup() {
@@ -704,25 +705,7 @@ class ExitIntentPopup extends HTMLElement {
         return { ...this.settings };
     }
 
-    // Getters for individual properties
-    get popupTitle() { return this.settings.popupTitle; }
-    get popupSubtitle() { return this.settings.popupSubtitle; }
-    get discountText() { return this.settings.discountText; }
-    get couponCode() { return this.settings.couponCode; }
-    get popupDescription() { return this.settings.popupDescription; }
-    get ctaButtonText() { return this.settings.ctaButtonText; }
-    get noThanksText() { return this.settings.noThanksText; }
-    get urgencyText() { return this.settings.urgencyText; }
-    get ctaButtonLink() { return this.settings.ctaButtonLink; }
-
     disconnectedCallback() {
-        // Clean up document-level event listeners to prevent memory leaks
-        document.removeEventListener('keydown', this._boundHandleKeyDown);
-        // Remove inactivity timer listeners
-        ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(event => {
-            document.removeEventListener(event, this._boundResetInactivityTimer, true);
-        });
-        clearTimeout(this._inactivityTimer); // Ensure timer is cleared
         console.log('Exit intent popup disconnected');
     }
 }
