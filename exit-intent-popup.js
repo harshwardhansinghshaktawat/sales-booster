@@ -1,6 +1,6 @@
 // File name: exit-intent-popup-blocks-fixed.js
 // Custom Element Tag: <exit-intent-popup></exit-intent-popup>
-// Designed for Wix Blocks with maximum editability
+// Alternative approach using inline event handlers for better reliability
 
 class ExitIntentPopup extends HTMLElement {
     constructor() {
@@ -11,16 +11,6 @@ class ExitIntentPopup extends HTMLElement {
         this.lastTrigger = 0;
         this.lastScrollTop = 0;
         this.isConfigured = false;
-        this.eventListenersSetup = false;
-        
-        // Bind methods to preserve 'this' context
-        this.handleClick = this.handleClick.bind(this);
-        this.handleKeydown = this.handleKeydown.bind(this);
-        this.handleMouseLeave = this.handleMouseLeave.bind(this);
-        this.handleMouseEnter = this.handleMouseEnter.bind(this);
-        this.handleBeforeUnload = this.handleBeforeUnload.bind(this);
-        this.handleScroll = this.handleScroll.bind(this);
-        this.handleDoubleClick = this.handleDoubleClick.bind(this);
         
         // Default settings with maximum editability
         this.settings = {
@@ -83,17 +73,8 @@ class ExitIntentPopup extends HTMLElement {
             margin: '0'
         });
 
-        // Clean up any existing setup
-        this.cleanup();
-        
-        // Render popup
         this.renderPopup();
-        
-        // Setup with a small delay to ensure DOM is ready
-        setTimeout(() => {
-            this.setupEventListeners();
-            this.initializeExitIntent();
-        }, 100);
+        this.initializeExitIntent();
     }
 
     static get observedAttributes() {
@@ -119,26 +100,11 @@ class ExitIntentPopup extends HTMLElement {
         }
     }
 
-    cleanup() {
-        // Remove all event listeners
-        if (this.eventListenersSetup) {
-            document.removeEventListener('keydown', this.handleKeydown);
-            document.removeEventListener('mouseleave', this.handleMouseLeave);
-            document.removeEventListener('mouseenter', this.handleMouseEnter);
-            window.removeEventListener('beforeunload', this.handleBeforeUnload);
-            window.removeEventListener('scroll', this.handleScroll);
-            document.removeEventListener('dblclick', this.handleDoubleClick);
-            this.removeEventListener('click', this.handleClick);
-            this.eventListenersSetup = false;
-        }
-        
-        // Reset state
-        this.popupShown = false;
-        this.popupClosed = false;
-        this.mouseLeftWindow = false;
-    }
-
     renderPopup() {
+        // Using a unique identifier to ensure methods are called on the correct instance
+        const instanceId = 'popup_' + Math.random().toString(36).substr(2, 9);
+        window[instanceId] = this;
+
         this.innerHTML = `
             <style>
                 :host {
@@ -433,9 +399,9 @@ class ExitIntentPopup extends HTMLElement {
                 }
             </style>
 
-            <div class="exit-popup-overlay" id="exitPopupOverlay">
+            <div class="exit-popup-overlay" id="exitPopupOverlay" onclick="if(event.target === this) window.${instanceId}.closePopup();">
                 <div class="exit-popup">
-                    <button class="close-btn" id="closeBtn" type="button">&times;</button>
+                    <button class="close-btn" type="button" onclick="window.${instanceId}.closePopup(); return false;">&times;</button>
                     
                     <div class="popup-icon">${this.settings.popupIcon}</div>
                     
@@ -447,143 +413,139 @@ class ExitIntentPopup extends HTMLElement {
                     
                     <p class="popup-description">${this.settings.popupDescription}</p>
                     
-                    <button class="cta-button" id="ctaBtn" type="button">${this.settings.ctaButtonText}</button>
+                    <button class="cta-button" type="button" onclick="window.${instanceId}.claimOffer(); return false;">${this.settings.ctaButtonText}</button>
                     <br>
-                    <button class="no-thanks" id="noThanksBtn" type="button">${this.settings.noThanksText}</button>
+                    <button class="no-thanks" type="button" onclick="window.${instanceId}.closePopup(); return false;">${this.settings.noThanksText}</button>
                     
                     <p class="urgency-text">${this.settings.urgencyText}</p>
                 </div>
             </div>
         `;
+        
+        console.log('Popup rendered with inline handlers, instance ID:', instanceId);
+        
+        // Add keyboard listener
+        this.addKeyboardListener();
+    }
+
+    addKeyboardListener() {
+        // Only add one keyboard listener
+        if (!this.keyboardListenerAdded) {
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && this.popupShown) {
+                    console.log('Escape key pressed - closing popup');
+                    this.closePopup();
+                }
+            });
+            this.keyboardListenerAdded = true;
+        }
     }
 
     updatePopupContent() {
         console.log('Updating popup content with new settings');
         
-        // Re-render to get the latest styles and content
-        this.renderPopup();
+        // Update text content without full re-render to preserve event handlers
+        const titleEl = this.querySelector('.popup-title');
+        const subtitleEl = this.querySelector('.popup-subtitle');
+        const discountEl = this.querySelector('.discount-badge');
+        const descEl = this.querySelector('.popup-description');
+        const ctaEl = this.querySelector('.cta-button');
+        const noThanksEl = this.querySelector('.no-thanks');
+        const urgencyEl = this.querySelector('.urgency-text');
+        const iconEl = this.querySelector('.popup-icon');
         
-        // Re-setup event listeners after re-render
-        setTimeout(() => {
-            this.setupEventListeners();
-        }, 50);
+        if (titleEl) titleEl.textContent = this.settings.popupTitle;
+        if (subtitleEl) subtitleEl.textContent = this.settings.popupSubtitle;
+        if (discountEl) discountEl.textContent = this.settings.discountText;
+        if (descEl) descEl.innerHTML = this.settings.popupDescription;
+        if (ctaEl) ctaEl.textContent = this.settings.ctaButtonText;
+        if (noThanksEl) noThanksEl.textContent = this.settings.noThanksText;
+        if (urgencyEl) urgencyEl.textContent = this.settings.urgencyText;
+        if (iconEl) iconEl.textContent = this.settings.popupIcon;
+        
+        // Update styles
+        this.updateStyles();
     }
 
-    handleClick(e) {
-        const target = e.target;
-        console.log('Click detected on:', target.id, target.className);
+    updateStyles() {
+        // Update dynamic styles
+        const popup = this.querySelector('.exit-popup');
+        const titleEl = this.querySelector('.popup-title');
+        const subtitleEl = this.querySelector('.popup-subtitle');
+        const ctaEl = this.querySelector('.cta-button');
         
-        if (target.id === 'closeBtn' || target.classList.contains('close-btn')) {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('Close button clicked');
-            this.closePopup();
-        }
-        else if (target.id === 'ctaBtn' || target.classList.contains('cta-button')) {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('CTA button clicked, link:', this.settings.ctaButtonLink);
-            this.claimOffer();
-        }
-        else if (target.id === 'noThanksBtn' || target.classList.contains('no-thanks')) {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('No Thanks button clicked');
-            this.closePopup();
-        }
-        else if (target.id === 'exitPopupOverlay') {
-            console.log('Overlay clicked - closing popup');
-            this.closePopup();
-        }
-    }
-
-    handleKeydown(e) {
-        if (e.key === 'Escape' && this.popupShown) {
-            console.log('Escape key pressed - closing popup');
-            this.closePopup();
-        }
-    }
-
-    handleMouseLeave(e) {
-        if (e.clientY <= 0) {
-            this.mouseLeftWindow = true;
-            setTimeout(() => {
-                if (this.mouseLeftWindow && this.isConfigured) {
-                    this.showExitPopup();
-                }
-            }, 100);
-        }
-    }
-
-    handleMouseEnter() {
-        this.mouseLeftWindow = false;
-    }
-
-    handleBeforeUnload(e) {
-        if (!this.popupShown && !this.popupClosed && this.isConfigured) {
-            this.showExitPopup();
-            return 'Are you sure you want to leave? You have an exclusive discount waiting!';
-        }
-    }
-
-    handleScroll() {
-        let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-        
-        if (scrollTop < this.lastScrollTop && scrollTop < 100 && this.lastScrollTop > 200) {
-            // User scrolled up quickly to top - possible exit intent on mobile
-            if (!this.popupShown && !this.popupClosed && this.isConfigured) {
-                setTimeout(() => {
-                    this.showExitPopup();
-                }, 500);
-            }
+        if (popup) {
+            popup.style.background = this.settings.backgroundGradient;
+            popup.style.color = this.settings.textColor;
         }
         
-        this.lastScrollTop = scrollTop;
-    }
-
-    handleDoubleClick() {
-        if (!this.popupShown && !this.popupClosed && this.isConfigured) {
-            console.log('Double click detected - showing popup for testing');
-            this.showExitPopup();
+        if (titleEl) {
+            titleEl.style.fontSize = this.settings.titleFontSize + 'px';
+            titleEl.style.color = this.settings.textColor;
         }
-    }
-
-    setupEventListeners() {
-        if (this.eventListenersSetup) {
-            console.log('Event listeners already setup, skipping...');
-            return;
+        
+        if (subtitleEl) {
+            subtitleEl.style.fontSize = this.settings.subtitleFontSize + 'px';
+            subtitleEl.style.color = this.settings.textColor;
         }
-
-        console.log('Setting up event listeners...');
         
-        // Add click listener to the custom element itself
-        this.addEventListener('click', this.handleClick, true);
-        
-        // Add global event listeners
-        document.addEventListener('keydown', this.handleKeydown);
-        document.addEventListener('mouseleave', this.handleMouseLeave);
-        document.addEventListener('mouseenter', this.handleMouseEnter);
-        window.addEventListener('beforeunload', this.handleBeforeUnload);
-        window.addEventListener('scroll', this.handleScroll);
-        document.addEventListener('dblclick', this.handleDoubleClick);
-        
-        this.eventListenersSetup = true;
-        console.log('All event listeners set up successfully');
-        
-        // Verify buttons exist
-        const closeBtn = this.querySelector('#closeBtn');
-        const ctaBtn = this.querySelector('#ctaBtn');
-        const noThanksBtn = this.querySelector('#noThanksBtn');
-        
-        console.log('Button elements found:', {
-            closeBtn: !!closeBtn,
-            ctaBtn: !!ctaBtn,
-            noThanksBtn: !!noThanksBtn
-        });
+        if (ctaEl) {
+            ctaEl.style.background = this.settings.ctaButtonColor;
+            ctaEl.style.fontSize = this.settings.buttonFontSize + 'px';
+            ctaEl.style.color = this.settings.buttonTextColor;
+        }
     }
 
     initializeExitIntent() {
-        console.log('Exit intent initialized - listeners are already set up');
+        console.log('Initializing exit intent detection...');
+        
+        // Desktop exit intent detection
+        document.addEventListener('mouseleave', (e) => {
+            if (e.clientY <= 0) {
+                this.mouseLeftWindow = true;
+                setTimeout(() => {
+                    if (this.mouseLeftWindow && this.isConfigured) {
+                        this.showExitPopup();
+                    }
+                }, 100);
+            }
+        });
+
+        document.addEventListener('mouseenter', () => {
+            this.mouseLeftWindow = false;
+        });
+
+        // Mobile and desktop beforeunload detection
+        window.addEventListener('beforeunload', (e) => {
+            if (!this.popupShown && !this.popupClosed && this.isConfigured) {
+                this.showExitPopup();
+                return 'Are you sure you want to leave? You have an exclusive discount waiting!';
+            }
+        });
+
+        // Mobile-specific exit intent (scroll to top quickly)
+        window.addEventListener('scroll', () => {
+            let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            
+            if (scrollTop < this.lastScrollTop && scrollTop < 100 && this.lastScrollTop > 200) {
+                // User scrolled up quickly to top - possible exit intent on mobile
+                if (!this.popupShown && !this.popupClosed && this.isConfigured) {
+                    setTimeout(() => {
+                        this.showExitPopup();
+                    }, 500);
+                }
+            }
+            
+            this.lastScrollTop = scrollTop;
+        });
+
+        // Testing trigger - double click anywhere on page
+        document.addEventListener('dblclick', () => {
+            if (!this.popupShown && !this.popupClosed && this.isConfigured) {
+                console.log('Double click detected - showing popup for testing');
+                this.showExitPopup();
+            }
+        });
     }
 
     showExitPopup() {
@@ -616,7 +578,7 @@ class ExitIntentPopup extends HTMLElement {
     }
 
     closePopup() {
-        console.log('Closing popup...');
+        console.log('Close popup method called');
         const overlay = this.querySelector('#exitPopupOverlay');
         if (overlay) {
             overlay.classList.remove('show');
@@ -646,7 +608,7 @@ class ExitIntentPopup extends HTMLElement {
     }
 
     claimOffer() {
-        console.log('Claiming offer with link:', this.settings.ctaButtonLink);
+        console.log('Claim offer method called, link:', this.settings.ctaButtonLink);
         
         // Dispatch custom event with coupon code
         this.dispatchEvent(new CustomEvent('offer-claimed', {
@@ -726,8 +688,7 @@ class ExitIntentPopup extends HTMLElement {
     }
 
     disconnectedCallback() {
-        console.log('Exit intent popup disconnected - cleaning up');
-        this.cleanup();
+        console.log('Exit intent popup disconnected');
     }
 }
 
