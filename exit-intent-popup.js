@@ -1,696 +1,314 @@
-// File name: exit-intent-popup-blocks-fixed.js
-// Custom Element Tag: <exit-intent-popup></exit-intent-popup>
-// Alternative approach using inline event handlers for better reliability
-
 class ExitIntentPopup extends HTMLElement {
-    constructor() {
-        super();
-        this.popupShown = false;
-        this.mouseLeftWindow = false;
-        this.popupClosed = false;
-        this.lastTrigger = 0;
-        this.lastScrollTop = 0;
-        this.isConfigured = false;
-        
-        // Default settings with maximum editability
-        this.settings = {
-            // Text Content - Fully Editable
-            popupTitle: 'Wait! Don\'t Miss Out!',
-            popupSubtitle: 'You\'re about to leave, but we have an exclusive offer just for you!',
-            discountText: '25% OFF',
-            couponCode: 'SAVE25',
-            popupDescription: 'Use code <strong>SAVE25</strong> and get instant 25% discount on your entire order. This exclusive offer is only available for the next few minutes!',
-            ctaButtonText: 'Claim My Discount',
-            noThanksText: 'No thanks, I\'ll pass',
-            urgencyText: '⏰ Limited time offer - expires in 10 minutes!',
-            popupIcon: '🎉',
-            
-            // Functionality
-            ctaButtonLink: '',
-            
-            // Typography - Fully Customizable
-            fontFamily: 'Arial',
-            titleFontSize: 28,
-            subtitleFontSize: 18,
-            descriptionFontSize: 16,
-            buttonFontSize: 18,
-            urgencyFontSize: 14,
-            noThanksFontSize: 14,
-            discountBadgeFontSize: 24,
-            
-            // Colors - Fully Customizable
-            backgroundGradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            discountBadgeColor: 'linear-gradient(45deg, #ff6b6b, #ee5a24)',
-            ctaButtonColor: 'linear-gradient(45deg, #00d2ff, #3a7bd5)',
-            textColor: '#ffffff',
-            buttonTextColor: '#ffffff',
-            noThanksTextColor: '#ffffff',
-            noThanksBorderColor: 'rgba(255, 255, 255, 0.3)',
-            
-            // Layout & Spacing
-            popupMaxWidth: 500,
-            popupPadding: 40,
-            borderRadius: 20,
-            iconSize: 60,
-            
-            // Animation
-            enableAnimations: true,
-            animationDuration: 0.4
-        };
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+    this.isPopupShown = false;
+    this.exitIntentTriggered = false;
+    this.mouseLeaveHandler = null;
+    this.mouseMoveHandler = null;
+    this.popupCloseHandler = null;
+  }
+
+  static get observedAttributes() {
+    return [
+      'popup-heading', 'popup-subheading', 'popup-description', 'coupon-code',
+      'button-text', 'button-link', 'background-color', 'text-color', 
+      'button-color', 'popup-width', 'popup-height', 'overlay-opacity'
+    ];
+  }
+
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (oldValue !== newValue) {
+      this.render();
     }
+  }
 
-    connectedCallback() {
-        console.log('Exit intent popup connected');
-        
-        // Set host styles
-        Object.assign(this.style, {
-            display: 'block',
-            width: '100%',
-            height: '100%',
-            position: 'relative',
-            overflow: 'hidden',
-            padding: '0',
-            margin: '0'
-        });
+  connectedCallback() {
+    this.render();
+    this.setupExitIntentDetection();
+  }
 
-        this.renderPopup();
-        this.initializeExitIntent();
+  disconnectedCallback() {
+    this.removeExitIntentDetection();
+  }
+
+  setupExitIntentDetection() {
+    // Detect when mouse leaves the top of the viewport (exit intent)
+    this.mouseLeaveHandler = (event) => {
+      // Check if mouse is leaving through the top of the viewport
+      if (event.clientY <= 0 && !this.exitIntentTriggered) {
+        this.exitIntentTriggered = true;
+        this.showPopup();
+      }
+    };
+
+    // Additional detection for fast mouse movement towards top
+    this.mouseMoveHandler = (event) => {
+      if (event.clientY <= 50 && event.movementY < -10 && !this.exitIntentTriggered) {
+        this.exitIntentTriggered = true;
+        this.showPopup();
+      }
+    };
+
+    document.addEventListener('mouseleave', this.mouseLeaveHandler);
+    document.addEventListener('mousemove', this.mouseMoveHandler);
+  }
+
+  removeExitIntentDetection() {
+    if (this.mouseLeaveHandler) {
+      document.removeEventListener('mouseleave', this.mouseLeaveHandler);
     }
-
-    static get observedAttributes() {
-        return ['config'];
+    if (this.mouseMoveHandler) {
+      document.removeEventListener('mousemove', this.mouseMoveHandler);
     }
+  }
 
-    attributeChangedCallback(name, oldValue, newValue) {
-        if (name === 'config') {
-            if (newValue && newValue !== oldValue && newValue.trim() !== '') {
-                try {
-                    const newConfig = JSON.parse(newValue);
-                    // Merge new config with existing settings
-                    Object.assign(this.settings, newConfig);
-                    this.isConfigured = true;
-                    console.log('Configuration received:', this.settings);
-                    console.log('CTA Button Link:', this.settings.ctaButtonLink);
-                    this.updatePopupContent();
-                } catch (e) {
-                    console.warn('Invalid JSON in config attribute:', e);
-                    console.warn('Invalid JSON string:', newValue);
-                }
-            }
-        }
+  showPopup() {
+    if (this.isPopupShown) return;
+    
+    const popup = this.shadowRoot.querySelector('.exit-popup');
+    const overlay = this.shadowRoot.querySelector('.popup-overlay');
+    
+    if (popup && overlay) {
+      this.isPopupShown = true;
+      overlay.style.display = 'flex';
+      
+      // Animate popup in
+      setTimeout(() => {
+        overlay.classList.add('show');
+        popup.classList.add('show');
+      }, 10);
     }
+  }
 
-    renderPopup() {
-        // Using a unique identifier to ensure methods are called on the correct instance
-        const instanceId = 'popup_' + Math.random().toString(36).substr(2, 9);
-        window[instanceId] = this;
-
-        this.innerHTML = `
-            <style>
-                :host {
-                    display: block;
-                    position: relative;
-                }
-
-                * {
-                    margin: 0;
-                    padding: 0;
-                    box-sizing: border-box;
-                }
-
-                .exit-popup-overlay {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: rgba(0, 0, 0, 0.8);
-                    backdrop-filter: blur(5px);
-                    z-index: 999999;
-                    display: none;
-                    align-items: center;
-                    justify-content: center;
-                    animation: ${this.settings.enableAnimations ? 'fadeIn 0.3s ease-out' : 'none'};
-                }
-
-                .exit-popup-overlay.show {
-                    display: flex !important;
-                }
-
-                @keyframes fadeIn {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
-                }
-
-                @keyframes slideUp {
-                    from {
-                        transform: translateY(50px);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateY(0);
-                        opacity: 1;
-                    }
-                }
-
-                @keyframes bounce {
-                    0%, 20%, 50%, 80%, 100% {
-                        transform: translateY(0);
-                    }
-                    40% {
-                        transform: translateY(-10px);
-                    }
-                    60% {
-                        transform: translateY(-5px);
-                    }
-                }
-
-                @keyframes pulse {
-                    0% {
-                        transform: scale(1);
-                        box-shadow: 0 8px 25px rgba(238, 90, 36, 0.4);
-                    }
-                    50% {
-                        transform: scale(1.05);
-                        box-shadow: 0 12px 35px rgba(238, 90, 36, 0.6);
-                    }
-                    100% {
-                        transform: scale(1);
-                        box-shadow: 0 8px 25px rgba(238, 90, 36, 0.4);
-                    }
-                }
-
-                .exit-popup {
-                    background: ${this.settings.backgroundGradient};
-                    border-radius: ${this.settings.borderRadius}px;
-                    padding: ${this.settings.popupPadding}px 30px;
-                    max-width: ${this.settings.popupMaxWidth}px;
-                    width: 90%;
-                    text-align: center;
-                    position: relative;
-                    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
-                    animation: ${this.settings.enableAnimations ? `slideUp ${this.settings.animationDuration}s ease-out` : 'none'};
-                    color: ${this.settings.textColor};
-                    font-family: ${this.settings.fontFamily}, sans-serif;
-                }
-
-                .exit-popup::before {
-                    content: '';
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
-                    border-radius: ${this.settings.borderRadius}px;
-                    pointer-events: none;
-                }
-
-                .close-btn {
-                    position: absolute;
-                    top: 15px;
-                    right: 20px;
-                    background: rgba(255, 255, 255, 0.2);
-                    border: none;
-                    width: 35px;
-                    height: 35px;
-                    border-radius: 50%;
-                    color: white;
-                    font-size: 18px;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    z-index: 10;
-                }
-
-                .close-btn:hover {
-                    background: rgba(255, 255, 255, 0.3);
-                    transform: scale(1.1);
-                }
-
-                .popup-icon {
-                    font-size: ${this.settings.iconSize}px;
-                    margin-bottom: 20px;
-                    animation: ${this.settings.enableAnimations ? 'bounce 2s infinite' : 'none'};
-                }
-
-                .popup-title {
-                    font-size: ${this.settings.titleFontSize}px;
-                    font-weight: 700;
-                    margin-bottom: 15px;
-                    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-                    font-family: ${this.settings.fontFamily}, sans-serif;
-                    color: ${this.settings.textColor};
-                    position: relative;
-                    z-index: 1;
-                }
-
-                .popup-subtitle {
-                    font-size: ${this.settings.subtitleFontSize}px;
-                    margin-bottom: 25px;
-                    opacity: 0.9;
-                    line-height: 1.4;
-                    font-family: ${this.settings.fontFamily}, sans-serif;
-                    color: ${this.settings.textColor};
-                    position: relative;
-                    z-index: 1;
-                }
-
-                .discount-badge {
-                    display: inline-block;
-                    background: ${this.settings.discountBadgeColor};
-                    padding: 15px 30px;
-                    border-radius: 50px;
-                    font-size: ${this.settings.discountBadgeFontSize}px;
-                    font-weight: 800;
-                    margin: 20px 0;
-                    box-shadow: 0 8px 25px rgba(238, 90, 36, 0.4);
-                    animation: ${this.settings.enableAnimations ? 'pulse 2s infinite' : 'none'};
-                    font-family: ${this.settings.fontFamily}, sans-serif;
-                    color: white;
-                    position: relative;
-                    z-index: 1;
-                }
-
-                .popup-description {
-                    font-size: ${this.settings.descriptionFontSize}px;
-                    margin: 20px 0;
-                    line-height: 1.5;
-                    opacity: 0.95;
-                    font-family: ${this.settings.fontFamily}, sans-serif;
-                    color: ${this.settings.textColor};
-                    position: relative;
-                    z-index: 1;
-                }
-
-                .cta-button {
-                    background: ${this.settings.ctaButtonColor};
-                    border: none;
-                    padding: 18px 40px;
-                    border-radius: 50px;
-                    color: ${this.settings.buttonTextColor};
-                    font-size: ${this.settings.buttonFontSize}px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                    margin: 20px 10px 10px 10px;
-                    box-shadow: 0 8px 25px rgba(58, 123, 213, 0.4);
-                    text-transform: uppercase;
-                    letter-spacing: 1px;
-                    font-family: ${this.settings.fontFamily}, sans-serif;
-                    position: relative;
-                    z-index: 1;
-                }
-
-                .cta-button:hover {
-                    transform: translateY(-3px);
-                    box-shadow: 0 12px 35px rgba(58, 123, 213, 0.6);
-                }
-
-                .no-thanks {
-                    background: transparent;
-                    border: 2px solid ${this.settings.noThanksBorderColor};
-                    padding: 12px 25px;
-                    border-radius: 25px;
-                    color: ${this.settings.noThanksTextColor};
-                    font-size: ${this.settings.noThanksFontSize}px;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                    margin: 10px;
-                    font-family: ${this.settings.fontFamily}, sans-serif;
-                    position: relative;
-                    z-index: 1;
-                }
-
-                .no-thanks:hover {
-                    background: rgba(255, 255, 255, 0.1);
-                    border-color: rgba(255, 255, 255, 0.5);
-                }
-
-                .urgency-text {
-                    font-size: ${this.settings.urgencyFontSize}px;
-                    margin-top: 15px;
-                    opacity: 0.8;
-                    font-style: italic;
-                    font-family: ${this.settings.fontFamily}, sans-serif;
-                    color: ${this.settings.textColor};
-                    position: relative;
-                    z-index: 1;
-                }
-
-                /* Mobile Responsiveness */
-                @media (max-width: 768px) {
-                    .exit-popup {
-                        padding: 30px 20px;
-                        margin: 20px;
-                        max-width: none;
-                        width: calc(100% - 40px);
-                    }
-
-                    .popup-title {
-                        font-size: ${Math.max(this.settings.titleFontSize - 4, 18)}px;
-                    }
-
-                    .popup-subtitle {
-                        font-size: ${Math.max(this.settings.subtitleFontSize - 2, 14)}px;
-                    }
-
-                    .discount-badge {
-                        font-size: ${Math.max(this.settings.discountBadgeFontSize - 4, 18)}px;
-                        padding: 12px 25px;
-                    }
-
-                    .cta-button {
-                        padding: 15px 30px;
-                        font-size: ${Math.max(this.settings.buttonFontSize - 2, 14)}px;
-                        width: 100%;
-                        margin: 15px 0 5px 0;
-                    }
-
-                    .no-thanks {
-                        width: 100%;
-                        margin: 10px 0;
-                    }
-
-                    .popup-icon {
-                        font-size: ${Math.max(this.settings.iconSize - 10, 40)}px;
-                    }
-                }
-
-                @media (max-width: 480px) {
-                    .exit-popup {
-                        padding: 25px 15px;
-                    }
-
-                    .popup-title {
-                        font-size: ${Math.max(this.settings.titleFontSize - 6, 16)}px;
-                    }
-
-                    .discount-badge {
-                        font-size: ${Math.max(this.settings.discountBadgeFontSize - 6, 16)}px;
-                    }
-                }
-
-                /* Smooth animations for better UX */
-                .exit-popup * {
-                    transition: all 0.3s ease;
-                }
-            </style>
-
-            <div class="exit-popup-overlay" id="exitPopupOverlay" onclick="if(event.target === this) window.${instanceId}.closePopup();">
-                <div class="exit-popup">
-                    <button class="close-btn" type="button" onclick="window.${instanceId}.closePopup(); return false;">&times;</button>
-                    
-                    <div class="popup-icon">${this.settings.popupIcon}</div>
-                    
-                    <h2 class="popup-title">${this.settings.popupTitle}</h2>
-                    
-                    <p class="popup-subtitle">${this.settings.popupSubtitle}</p>
-                    
-                    <div class="discount-badge">${this.settings.discountText}</div>
-                    
-                    <p class="popup-description">${this.settings.popupDescription}</p>
-                    
-                    <button class="cta-button" type="button" onclick="window.${instanceId}.claimOffer(); return false;">${this.settings.ctaButtonText}</button>
-                    <br>
-                    <button class="no-thanks" type="button" onclick="window.${instanceId}.closePopup(); return false;">${this.settings.noThanksText}</button>
-                    
-                    <p class="urgency-text">${this.settings.urgencyText}</p>
-                </div>
-            </div>
-        `;
-        
-        console.log('Popup rendered with inline handlers, instance ID:', instanceId);
-        
-        // Add keyboard listener
-        this.addKeyboardListener();
+  hidePopup() {
+    const popup = this.shadowRoot.querySelector('.exit-popup');
+    const overlay = this.shadowRoot.querySelector('.popup-overlay');
+    
+    if (popup && overlay) {
+      overlay.classList.remove('show');
+      popup.classList.remove('show');
+      
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        this.isPopupShown = false;
+      }, 300);
     }
+  }
 
-    addKeyboardListener() {
-        // Only add one keyboard listener
-        if (!this.keyboardListenerAdded) {
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && this.popupShown) {
-                    console.log('Escape key pressed - closing popup');
-                    this.closePopup();
-                }
-            });
-            this.keyboardListenerAdded = true;
-        }
+  handleButtonClick() {
+    const buttonLink = this.getAttribute('button-link') || '#';
+    if (buttonLink && buttonLink !== '#') {
+      window.open(buttonLink, '_blank');
     }
+    this.hidePopup();
+  }
 
-    updatePopupContent() {
-        console.log('Updating popup content with new settings');
-        
-        // Update text content without full re-render to preserve event handlers
-        const titleEl = this.querySelector('.popup-title');
-        const subtitleEl = this.querySelector('.popup-subtitle');
-        const discountEl = this.querySelector('.discount-badge');
-        const descEl = this.querySelector('.popup-description');
-        const ctaEl = this.querySelector('.cta-button');
-        const noThanksEl = this.querySelector('.no-thanks');
-        const urgencyEl = this.querySelector('.urgency-text');
-        const iconEl = this.querySelector('.popup-icon');
-        
-        if (titleEl) titleEl.textContent = this.settings.popupTitle;
-        if (subtitleEl) subtitleEl.textContent = this.settings.popupSubtitle;
-        if (discountEl) discountEl.textContent = this.settings.discountText;
-        if (descEl) descEl.innerHTML = this.settings.popupDescription;
-        if (ctaEl) ctaEl.textContent = this.settings.ctaButtonText;
-        if (noThanksEl) noThanksEl.textContent = this.settings.noThanksText;
-        if (urgencyEl) urgencyEl.textContent = this.settings.urgencyText;
-        if (iconEl) iconEl.textContent = this.settings.popupIcon;
-        
-        // Update styles
-        this.updateStyles();
-    }
+  render() {
+    const popupHeading = this.getAttribute('popup-heading') || 'Wait! Don\'t Leave Yet!';
+    const popupSubheading = this.getAttribute('popup-subheading') || 'Special Offer Just For You';
+    const popupDescription = this.getAttribute('popup-description') || 'Get an exclusive discount before you go!';
+    const couponCode = this.getAttribute('coupon-code') || 'SAVE20';
+    const buttonText = this.getAttribute('button-text') || 'Claim Offer';
+    const buttonLink = this.getAttribute('button-link') || '#';
+    const backgroundColor = this.getAttribute('background-color') || '#ffffff';
+    const textColor = this.getAttribute('text-color') || '#333333';
+    const buttonColor = this.getAttribute('button-color') || '#ff6b6b';
+    const popupWidth = parseInt(this.getAttribute('popup-width')) || 500;
+    const popupHeight = parseInt(this.getAttribute('popup-height')) || 400;
+    const overlayOpacity = this.getAttribute('overlay-opacity') || '0.8';
 
-    updateStyles() {
-        // Update dynamic styles
-        const popup = this.querySelector('.exit-popup');
-        const titleEl = this.querySelector('.popup-title');
-        const subtitleEl = this.querySelector('.popup-subtitle');
-        const ctaEl = this.querySelector('.cta-button');
-        
-        if (popup) {
-            popup.style.background = this.settings.backgroundGradient;
-            popup.style.color = this.settings.textColor;
-        }
-        
-        if (titleEl) {
-            titleEl.style.fontSize = this.settings.titleFontSize + 'px';
-            titleEl.style.color = this.settings.textColor;
-        }
-        
-        if (subtitleEl) {
-            subtitleEl.style.fontSize = this.settings.subtitleFontSize + 'px';
-            subtitleEl.style.color = this.settings.textColor;
-        }
-        
-        if (ctaEl) {
-            ctaEl.style.background = this.settings.ctaButtonColor;
-            ctaEl.style.fontSize = this.settings.buttonFontSize + 'px';
-            ctaEl.style.color = this.settings.buttonTextColor;
-        }
-    }
-
-    initializeExitIntent() {
-        console.log('Initializing exit intent detection...');
-        
-        // Desktop exit intent detection
-        document.addEventListener('mouseleave', (e) => {
-            if (e.clientY <= 0) {
-                this.mouseLeftWindow = true;
-                setTimeout(() => {
-                    if (this.mouseLeftWindow && this.isConfigured) {
-                        this.showExitPopup();
-                    }
-                }, 100);
-            }
-        });
-
-        document.addEventListener('mouseenter', () => {
-            this.mouseLeftWindow = false;
-        });
-
-        // Mobile and desktop beforeunload detection
-        window.addEventListener('beforeunload', (e) => {
-            if (!this.popupShown && !this.popupClosed && this.isConfigured) {
-                this.showExitPopup();
-                return 'Are you sure you want to leave? You have an exclusive discount waiting!';
-            }
-        });
-
-        // Mobile-specific exit intent (scroll to top quickly)
-        window.addEventListener('scroll', () => {
-            let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-            
-            if (scrollTop < this.lastScrollTop && scrollTop < 100 && this.lastScrollTop > 200) {
-                // User scrolled up quickly to top - possible exit intent on mobile
-                if (!this.popupShown && !this.popupClosed && this.isConfigured) {
-                    setTimeout(() => {
-                        this.showExitPopup();
-                    }, 500);
-                }
-            }
-            
-            this.lastScrollTop = scrollTop;
-        });
-
-        // Testing trigger - double click anywhere on page
-        document.addEventListener('dblclick', () => {
-            if (!this.popupShown && !this.popupClosed && this.isConfigured) {
-                console.log('Double click detected - showing popup for testing');
-                this.showExitPopup();
-            }
-        });
-    }
-
-    showExitPopup() {
-        const now = Date.now();
-        if (now - this.lastTrigger > 2000 && !this.popupShown && !this.popupClosed && this.isConfigured) {
-            this.lastTrigger = now;
-            const overlay = this.querySelector('#exitPopupOverlay');
-            if (overlay) {
-                overlay.classList.add('show');
-                this.popupShown = true;
-                console.log('Popup shown');
-                
-                // Dispatch custom event for tracking
-                this.dispatchEvent(new CustomEvent('popup-shown', {
-                    bubbles: true,
-                    detail: { 
-                        timestamp: now,
-                        settings: this.settings 
-                    }
-                }));
-
-                // Track with Google Analytics if available
-                if (typeof gtag !== 'undefined') {
-                    gtag('event', 'exit_intent_popup_shown', {
-                        coupon_code: this.settings.couponCode
-                    });
-                }
-            }
-        }
-    }
-
-    closePopup() {
-        console.log('Close popup method called');
-        const overlay = this.querySelector('#exitPopupOverlay');
-        if (overlay) {
-            overlay.classList.remove('show');
-            this.popupShown = false;
-            console.log('Popup closed successfully');
-            
-            // Allow popup to be shown again after 5 seconds
-            setTimeout(() => {
-                this.popupClosed = false;
-                console.log('Popup can be shown again');
-            }, 5000);
-            
-            // Dispatch custom event
-            this.dispatchEvent(new CustomEvent('popup-closed', {
-                bubbles: true,
-                detail: { 
-                    timestamp: Date.now(),
-                    settings: this.settings 
-                }
-            }));
-
-            // Track with Google Analytics if available
-            if (typeof gtag !== 'undefined') {
-                gtag('event', 'exit_intent_popup_closed');
-            }
-        }
-    }
-
-    claimOffer() {
-        console.log('Claim offer method called, link:', this.settings.ctaButtonLink);
-        
-        // Dispatch custom event with coupon code
-        this.dispatchEvent(new CustomEvent('offer-claimed', {
-            bubbles: true,
-            detail: { 
-                couponCode: this.settings.couponCode,
-                timestamp: Date.now(),
-                settings: this.settings,
-                link: this.settings.ctaButtonLink
-            }
-        }));
-
-        // Track with Google Analytics if available
-        if (typeof gtag !== 'undefined') {
-            gtag('event', 'exit_intent_offer_claimed', {
-                coupon_code: this.settings.couponCode
-            });
+    this.shadowRoot.innerHTML = `
+      <style>
+        * {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
         }
 
-        // Close popup first
-        this.closePopup();
-
-        // Enhanced redirect handling
-        if (this.settings.ctaButtonLink && this.settings.ctaButtonLink.trim() !== '') {
-            try {
-                let url = this.settings.ctaButtonLink.trim();
-                
-                // Smart URL handling
-                if (!url.match(/^https?:\/\//)) {
-                    if (url.includes('.') || url.startsWith('www.')) {
-                        url = 'https://' + url;
-                    } else if (url.startsWith('/')) {
-                        url = window.location.origin + url;
-                    } else {
-                        url = window.location.origin + '/' + url;
-                    }
-                }
-                
-                console.log('Redirecting to:', url);
-                
-                // Add a small delay to ensure popup closes smoothly
-                setTimeout(() => {
-                    window.location.href = url;
-                }, 200);
-                
-            } catch (error) {
-                console.error('Error with redirect URL:', error);
-                alert(`Discount code ${this.settings.couponCode} has been applied! Please manually navigate to complete your purchase.`);
-            }
-        } else {
-            console.log('No link provided, showing coupon code alert');
-            alert(`Your discount code is: ${this.settings.couponCode}`);
+        .popup-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background-color: rgba(0, 0, 0, ${overlayOpacity});
+          display: none;
+          justify-content: center;
+          align-items: center;
+          z-index: 10000;
+          opacity: 0;
+          transition: opacity 0.3s ease;
         }
-    }
 
-    // Public API methods
-    triggerPopup() {
-        if (this.isConfigured) {
-            this.showExitPopup();
+        .popup-overlay.show {
+          opacity: 1;
         }
-    }
 
-    resetPopup() {
-        this.popupShown = false;
-        this.popupClosed = false;
-        this.mouseLeftWindow = false;
-        console.log('Popup state reset');
-    }
+        .exit-popup {
+          background-color: ${backgroundColor};
+          color: ${textColor};
+          border-radius: 15px;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+          max-width: ${popupWidth}px;
+          max-height: ${popupHeight}px;
+          width: 90vw;
+          padding: 40px 30px;
+          text-align: center;
+          position: relative;
+          transform: scale(0.7) translateY(-50px);
+          opacity: 0;
+          transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
 
-    updateConfiguration(newConfig) {
-        Object.assign(this.settings, newConfig);
-        this.updatePopupContent();
-    }
+        .exit-popup.show {
+          transform: scale(1) translateY(0);
+          opacity: 1;
+        }
 
-    getConfiguration() {
-        return { ...this.settings };
-    }
+        .close-btn {
+          position: absolute;
+          top: 15px;
+          right: 20px;
+          background: none;
+          border: none;
+          font-size: 24px;
+          cursor: pointer;
+          color: ${textColor};
+          opacity: 0.7;
+          transition: opacity 0.2s ease;
+        }
 
-    disconnectedCallback() {
-        console.log('Exit intent popup disconnected');
-    }
+        .close-btn:hover {
+          opacity: 1;
+        }
+
+        .popup-heading {
+          font-size: 28px;
+          font-weight: bold;
+          margin-bottom: 10px;
+          line-height: 1.2;
+        }
+
+        .popup-subheading {
+          font-size: 18px;
+          margin-bottom: 20px;
+          opacity: 0.8;
+          font-weight: 500;
+        }
+
+        .popup-description {
+          font-size: 16px;
+          line-height: 1.5;
+          margin-bottom: 25px;
+          opacity: 0.9;
+        }
+
+        .coupon-section {
+          background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+          color: white;
+          padding: 15px;
+          border-radius: 10px;
+          margin: 20px 0;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .coupon-section::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+          animation: shine 2s infinite;
+        }
+
+        @keyframes shine {
+          0% { left: -100%; }
+          100% { left: 100%; }
+        }
+
+        .coupon-label {
+          font-size: 14px;
+          opacity: 0.9;
+          margin-bottom: 5px;
+        }
+
+        .coupon-code {
+          font-size: 24px;
+          font-weight: bold;
+          letter-spacing: 2px;
+          font-family: 'Courier New', monospace;
+        }
+
+        .cta-button {
+          background: ${buttonColor};
+          color: white;
+          border: none;
+          padding: 15px 30px;
+          font-size: 18px;
+          font-weight: bold;
+          border-radius: 50px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          text-decoration: none;
+          display: inline-block;
+          margin-top: 10px;
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .cta-button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+          filter: brightness(1.1);
+        }
+
+        .cta-button:active {
+          transform: translateY(0);
+        }
+
+        @media (max-width: 600px) {
+          .exit-popup {
+            padding: 30px 20px;
+            margin: 20px;
+          }
+          
+          .popup-heading {
+            font-size: 24px;
+          }
+          
+          .popup-subheading {
+            font-size: 16px;
+          }
+          
+          .coupon-code {
+            font-size: 20px;
+          }
+        }
+      </style>
+      
+      <div class="popup-overlay" onclick="event.target === this && this.getRootNode().host.hidePopup()">
+        <div class="exit-popup">
+          <button class="close-btn" onclick="this.getRootNode().host.hidePopup()">&times;</button>
+          
+          <div class="popup-heading">${popupHeading}</div>
+          <div class="popup-subheading">${popupSubheading}</div>
+          <div class="popup-description">${popupDescription}</div>
+          
+          <div class="coupon-section">
+            <div class="coupon-label">Use Code:</div>
+            <div class="coupon-code">${couponCode}</div>
+          </div>
+          
+          <button class="cta-button" onclick="this.getRootNode().host.handleButtonClick()">
+            ${buttonText}
+          </button>
+        </div>
+      </div>
+    `;
+  }
 }
 
-// Register the custom element
 customElements.define('exit-intent-popup', ExitIntentPopup);
