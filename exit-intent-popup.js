@@ -6,9 +6,7 @@ class ExitIntentPopup extends HTMLElement {
     this.exitIntentTriggered = false;
     this.mouseLeaveHandler = this.handleMouseLeave.bind(this);
     this.mouseMoveHandler = this.handleMouseMove.bind(this);
-    this.overlayClickHandler = this.handleOverlayClick.bind(this);
-    this.closeButtonHandler = this.handleCloseButtonClick.bind(this);
-    this.ctaButtonHandler = this.handleButtonClick.bind(this);
+    this.clickHandler = this.handleClick.bind(this);
   }
 
   static get observedAttributes() {
@@ -32,7 +30,7 @@ class ExitIntentPopup extends HTMLElement {
 
   disconnectedCallback() {
     this.removeExitIntentDetection();
-    this.removeEventListeners();
+    this.removeClickHandler();
   }
 
   setupExitIntentDetection() {
@@ -45,20 +43,8 @@ class ExitIntentPopup extends HTMLElement {
     document.removeEventListener('mousemove', this.mouseMoveHandler);
   }
 
-  removeEventListeners() {
-    const overlay = this.shadowRoot.querySelector('.popup-overlay');
-    const closeBtn = this.shadowRoot.querySelector('.close-btn');
-    const ctaButton = this.shadowRoot.querySelector('.cta-button');
-
-    if (overlay) {
-      overlay.removeEventListener('click', this.overlayClickHandler);
-    }
-    if (closeBtn) {
-      closeBtn.removeEventListener('click', this.closeButtonHandler);
-    }
-    if (ctaButton) {
-      ctaButton.removeEventListener('click', this.ctaButtonHandler);
-    }
+  removeClickHandler() {
+    this.shadowRoot.removeEventListener('click', this.clickHandler);
   }
 
   handleMouseLeave(event) {
@@ -110,31 +96,36 @@ class ExitIntentPopup extends HTMLElement {
   handleButtonClick() {
     const buttonLink = this.getAttribute('button-link') || '#';
     if (buttonLink && buttonLink !== '#' && buttonLink.trim() !== '') {
-      window.open(buttonLink, '_blank');
+      try {
+        window.open(buttonLink, '_blank');
+      } catch (error) {
+        // console.error('Error opening link:', error);
+      }
     }
     this.hidePopup();
   }
 
-  handleCloseButtonClick() {
-    this.hidePopup();
-  }
+  handleClick(event) {
+    const target = event.target;
 
-  handleOverlayClick(event) {
-    if (event.target.classList.contains('popup-overlay')) {
+    if (target.classList.contains('popup-overlay')) {
       this.hidePopup();
+    } else if (target.classList.contains('close-btn')) {
+      this.hidePopup();
+    } else if (target.classList.contains('cta-button')) {
+      this.handleButtonClick();
     }
   }
 
   render() {
-    // Remove existing event listeners to prevent duplicates
-    this.removeEventListeners();
+    // Remove existing click handler to prevent duplicates
+    this.removeClickHandler();
 
     const popupHeading = this.getAttribute('popup-heading') || 'Wait! Don\'t Leave Yet!';
     const popupSubheading = this.getAttribute('popup-subheading') || 'Special Offer Just For You';
     const popupDescription = this.getAttribute('popup-description') || 'Get an exclusive discount before you go!';
     const couponCode = this.getAttribute('coupon-code') || 'SAVE20';
     const buttonText = this.getAttribute('button-text') || 'Claim Offer';
-    const buttonLink = this.getAttribute('button-link') || '#';
     const backgroundColor = this.getAttribute('background-color') || '#ffffff';
     const textColor = this.getAttribute('text-color') || '#333333';
     const buttonColor = this.getAttribute('button-color') || '#ff6b6b';
@@ -261,7 +252,7 @@ class ExitIntentPopup extends HTMLElement {
         }
 
         .coupon-code {
-          font-size: 24px;
+          font font-size: 24px;
           font-weight: bold;
           letter-spacing: 2px;
           font-family: 'Courier New', monospace;
@@ -316,35 +307,20 @@ class ExitIntentPopup extends HTMLElement {
       <div class="popup-overlay">
         <div class="exit-popup">
           <button class="close-btn">×</button>
-          
           <div class="popup-heading">${popupHeading}</div>
           <div class="popup-subheading">${popupSubheading}</div>
           <div class="popup-description">${popupDescription}</div>
-          
           <div class="coupon-section">
             <div class="coupon-label">Use Code:</div>
             <div class="coupon-code">${couponCode}</div>
           </div>
-          
           <button class="cta-button">${buttonText}</button>
         </div>
       </div>
     `;
 
-    // Add event listeners after render
-    const overlay = this.shadowRoot.querySelector('.popup-overlay');
-    const closeBtn = this.shadowRoot.querySelector('.close-btn');
-    const ctaButton = this.shadowRoot.querySelector('.cta-button');
-
-    if (overlay) {
-      overlay.addEventListener('click', this.overlayClickHandler);
-    }
-    if (closeBtn) {
-      closeBtn.addEventListener('click', this.closeButtonHandler);
-    }
-    if (ctaButton) {
-      ctaButton.addEventListener('click', this.ctaButtonHandler);
-    }
+    // Add delegated click handler
+    this.shadowRoot.addEventListener('click', this.clickHandler);
   }
 }
 
