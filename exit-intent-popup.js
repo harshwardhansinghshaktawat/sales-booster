@@ -50,8 +50,17 @@ class ExitIntentPopup extends HTMLElement {
       }
     };
 
+    // Test trigger - double click anywhere to test popup (remove in production)
+    this.testTriggerHandler = (event) => {
+      if (!this.exitIntentTriggered) {
+        this.exitIntentTriggered = true;
+        this.showPopup();
+      }
+    };
+
     document.addEventListener('mouseleave', this.mouseLeaveHandler);
     document.addEventListener('mousemove', this.mouseMoveHandler);
+    document.addEventListener('dblclick', this.testTriggerHandler); // For testing
   }
 
   removeExitIntentDetection() {
@@ -60,6 +69,9 @@ class ExitIntentPopup extends HTMLElement {
     }
     if (this.mouseMoveHandler) {
       document.removeEventListener('mousemove', this.mouseMoveHandler);
+    }
+    if (this.testTriggerHandler) {
+      document.removeEventListener('dblclick', this.testTriggerHandler);
     }
   }
 
@@ -72,6 +84,9 @@ class ExitIntentPopup extends HTMLElement {
     if (popup && overlay) {
       this.isPopupShown = true;
       overlay.style.display = 'flex';
+      
+      // Set up event listeners when popup is shown
+      this.attachPopupEventListeners();
       
       // Animate popup in
       setTimeout(() => {
@@ -92,6 +107,8 @@ class ExitIntentPopup extends HTMLElement {
       setTimeout(() => {
         overlay.style.display = 'none';
         this.isPopupShown = false;
+        // Reset trigger so popup can be shown again later
+        this.exitIntentTriggered = false;
       }, 300);
     }
   }
@@ -308,9 +325,6 @@ class ExitIntentPopup extends HTMLElement {
         </div>
       </div>
     `;
-
-    // Add event listeners after DOM is created
-    this.setupPopupEventListeners();
   }
 
   setupEventListeners() {
