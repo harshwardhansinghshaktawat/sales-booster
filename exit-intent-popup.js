@@ -4,14 +4,17 @@ class ExitIntentPopup extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this.isPopupShown = false;
     this.exitIntentTriggered = false;
-    this.mouseLeaveHandler = null;
-    this.mouseMoveHandler = null;
+    this.mouseLeaveHandler = this.handleMouseLeave.bind(this);
+    this.mouseMoveHandler = this.handleMouseMove.bind(this);
+    this.overlayClickHandler = this.handleOverlayClick.bind(this);
+    this.closeButtonHandler = this.handleCloseButtonClick.bind(this);
+    this.ctaButtonHandler = this.handleButtonClick.bind(this);
   }
 
   static get observedAttributes() {
     return [
       'popup-heading', 'popup-subheading', 'popup-description', 'coupon-code',
-      'button-text', 'button-link', 'background-color', 'text-color', 
+      'button-text', 'button-link', 'background-color', 'text-color',
       'button-color', 'popup-width', 'popup-height', 'overlay-opacity'
     ];
   }
@@ -29,50 +32,59 @@ class ExitIntentPopup extends HTMLElement {
 
   disconnectedCallback() {
     this.removeExitIntentDetection();
+    this.removeEventListeners();
   }
 
   setupExitIntentDetection() {
-    // Detect when mouse leaves the top of the viewport (exit intent)
-    this.mouseLeaveHandler = (event) => {
-      // Check if mouse is leaving through the top of the viewport
-      if (event.clientY <= 0 && !this.exitIntentTriggered) {
-        this.exitIntentTriggered = true;
-        this.showPopup();
-      }
-    };
-
-    // Additional detection for fast mouse movement towards top
-    this.mouseMoveHandler = (event) => {
-      if (event.clientY <= 50 && event.movementY < -10 && !this.exitIntentTriggered) {
-        this.exitIntentTriggered = true;
-        this.showPopup();
-      }
-    };
-
     document.addEventListener('mouseleave', this.mouseLeaveHandler);
     document.addEventListener('mousemove', this.mouseMoveHandler);
   }
 
   removeExitIntentDetection() {
-    if (this.mouseLeaveHandler) {
-      document.removeEventListener('mouseleave', this.mouseLeaveHandler);
+    document.removeEventListener('mouseleave', this.mouseLeaveHandler);
+    document.removeEventListener('mousemove', this.mouseMoveHandler);
+  }
+
+  removeEventListeners() {
+    const overlay = this.shadowRoot.querySelector('.popup-overlay');
+    const closeBtn = this.shadowRoot.querySelector('.close-btn');
+    const ctaButton = this.shadowRoot.querySelector('.cta-button');
+
+    if (overlay) {
+      overlay.removeEventListener('click', this.overlayClickHandler);
     }
-    if (this.mouseMoveHandler) {
-      document.removeEventListener('mousemove', this.mouseMoveHandler);
+    if (closeBtn) {
+      closeBtn.removeEventListener('click', this.closeButtonHandler);
+    }
+    if (ctaButton) {
+      ctaButton.removeEventListener('click', this.ctaButtonHandler);
+    }
+  }
+
+  handleMouseLeave(event) {
+    if (event.clientY <= 0 && !this.exitIntentTriggered) {
+      this.exitIntentTriggered = true;
+      this.showPopup();
+    }
+  }
+
+  handleMouseMove(event) {
+    if (event.clientY <= 50 && event.movementY < -10 && !this.exitIntentTriggered) {
+      this.exitIntentTriggered = true;
+      this.showPopup();
     }
   }
 
   showPopup() {
     if (this.isPopupShown) return;
-    
+
     const popup = this.shadowRoot.querySelector('.exit-popup');
     const overlay = this.shadowRoot.querySelector('.popup-overlay');
-    
+
     if (popup && overlay) {
       this.isPopupShown = true;
       overlay.style.display = 'flex';
-      
-      // Animate popup in
+
       setTimeout(() => {
         overlay.classList.add('show');
         popup.classList.add('show');
@@ -83,11 +95,11 @@ class ExitIntentPopup extends HTMLElement {
   hidePopup() {
     const popup = this.shadowRoot.querySelector('.exit-popup');
     const overlay = this.shadowRoot.querySelector('.popup-overlay');
-    
+
     if (popup && overlay) {
       overlay.classList.remove('show');
       popup.classList.remove('show');
-      
+
       setTimeout(() => {
         overlay.style.display = 'none';
         this.isPopupShown = false;
@@ -103,6 +115,10 @@ class ExitIntentPopup extends HTMLElement {
     this.hidePopup();
   }
 
+  handleCloseButtonClick() {
+    this.hidePopup();
+  }
+
   handleOverlayClick(event) {
     if (event.target.classList.contains('popup-overlay')) {
       this.hidePopup();
@@ -110,6 +126,9 @@ class ExitIntentPopup extends HTMLElement {
   }
 
   render() {
+    // Remove existing event listeners to prevent duplicates
+    this.removeEventListeners();
+
     const popupHeading = this.getAttribute('popup-heading') || 'Wait! Don\'t Leave Yet!';
     const popupSubheading = this.getAttribute('popup-subheading') || 'Special Offer Just For You';
     const popupDescription = this.getAttribute('popup-description') || 'Get an exclusive discount before you go!';
@@ -279,24 +298,24 @@ class ExitIntentPopup extends HTMLElement {
             padding: 30px 20px;
             margin: 20px;
           }
-          
+
           .popup-heading {
             font-size: 24px;
           }
-          
+
           .popup-subheading {
             font-size: 16px;
           }
-          
+
           .coupon-code {
             font-size: 20px;
           }
         }
       </style>
-      
+
       <div class="popup-overlay">
         <div class="exit-popup">
-          <button class="close-btn">&times;</button>
+          <button class="close-btn">×</button>
           
           <div class="popup-heading">${popupHeading}</div>
           <div class="popup-subheading">${popupSubheading}</div>
@@ -307,31 +326,25 @@ class ExitIntentPopup extends HTMLElement {
             <div class="coupon-code">${couponCode}</div>
           </div>
           
-          <button class="cta-button">
-            ${buttonText}
-          </button>
+          <button class="cta-button">${buttonText}</button>
         </div>
       </div>
     `;
 
     // Add event listeners after render
-    setTimeout(() => {
-      const overlay = this.shadowRoot.querySelector('.popup-overlay');
-      const closeBtn = this.shadowRoot.querySelector('.close-btn');
-      const ctaButton = this.shadowRoot.querySelector('.cta-button');
+    const overlay = this.shadowRoot.querySelector('.popup-overlay');
+    const closeBtn = this.shadowRoot.querySelector('.close-btn');
+    const ctaButton = this.shadowRoot.querySelector('.cta-button');
 
-      if (overlay) {
-        overlay.addEventListener('click', (event) => this.handleOverlayClick(event));
-      }
-      
-      if (closeBtn) {
-        closeBtn.addEventListener('click', () => this.hidePopup());
-      }
-      
-      if (ctaButton) {
-        ctaButton.addEventListener('click', () => this.handleButtonClick());
-      }
-    }, 0);
+    if (overlay) {
+      overlay.addEventListener('click', this.overlayClickHandler);
+    }
+    if (closeBtn) {
+      closeBtn.addEventListener('click', this.closeButtonHandler);
+    }
+    if (ctaButton) {
+      ctaButton.addEventListener('click', this.ctaButtonHandler);
+    }
   }
 }
 
