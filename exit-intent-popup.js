@@ -4,15 +4,14 @@ class ExitIntentPopup extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this.isPopupShown = false;
     this.exitIntentTriggered = false;
-    this.mouseLeaveHandler = this.handleMouseLeave.bind(this);
-    this.mouseMoveHandler = this.handleMouseMove.bind(this);
-    this.clickHandler = this.handleClick.bind(this);
+    this.mouseLeaveHandler = null;
+    this.mouseMoveHandler = null;
   }
 
   static get observedAttributes() {
     return [
       'popup-heading', 'popup-subheading', 'popup-description', 'coupon-code',
-      'button-text', 'button-link', 'background-color', 'text-color',
+      'button-text', 'button-link', 'background-color', 'text-color', 
       'button-color', 'popup-width', 'popup-height', 'overlay-opacity'
     ];
   }
@@ -26,51 +25,71 @@ class ExitIntentPopup extends HTMLElement {
   connectedCallback() {
     this.render();
     this.setupExitIntentDetection();
+    
+    // Add a simple test trigger - press 'P' key to test popup
+    this.keyPressHandler = (event) => {
+      if (event.key.toLowerCase() === 'p' && !this.exitIntentTriggered) {
+        this.exitIntentTriggered = true;
+        this.showPopup();
+      }
+    };
+    document.addEventListener('keydown', this.keyPressHandler);
   }
 
   disconnectedCallback() {
     this.removeExitIntentDetection();
-    this.removeClickHandler();
+    if (this.keyPressHandler) {
+      document.removeEventListener('keydown', this.keyPressHandler);
+    }
   }
 
   setupExitIntentDetection() {
+    // Detect when mouse leaves the top of the viewport (exit intent)
+    this.mouseLeaveHandler = (event) => {
+      // Check if mouse is leaving through the top of the viewport
+      if (event.clientY <= 0 && !this.exitIntentTriggered) {
+        this.exitIntentTriggered = true;
+        this.showPopup();
+      }
+    };
+
+    // Additional detection for fast mouse movement towards top
+    this.mouseMoveHandler = (event) => {
+      if (event.clientY <= 50 && event.movementY < -10 && !this.exitIntentTriggered) {
+        this.exitIntentTriggered = true;
+        this.showPopup();
+      }
+    };
+
     document.addEventListener('mouseleave', this.mouseLeaveHandler);
     document.addEventListener('mousemove', this.mouseMoveHandler);
   }
 
   removeExitIntentDetection() {
-    document.removeEventListener('mouseleave', this.mouseLeaveHandler);
-    document.removeEventListener('mousemove', this.mouseMoveHandler);
-  }
-
-  removeClickHandler() {
-    this.shadowRoot.removeEventListener('click', this.clickHandler);
-  }
-
-  handleMouseLeave(event) {
-    if (event.clientY <= 0 && !this.exitIntentTriggered) {
-      this.exitIntentTriggered = true;
-      this.showPopup();
+    if (this.mouseLeaveHandler) {
+      document.removeEventListener('mouseleave', this.mouseLeaveHandler);
     }
-  }
-
-  handleMouseMove(event) {
-    if (event.clientY <= 50 && event.movementY < -10 && !this.exitIntentTriggered) {
-      this.exitIntentTriggered = true;
-      this.showPopup();
+    if (this.mouseMoveHandler) {
+      document.removeEventListener('mousemove', this.mouseMoveHandler);
     }
   }
 
   showPopup() {
+    console.log('showPopup called');
     if (this.isPopupShown) return;
-
+    
     const popup = this.shadowRoot.querySelector('.exit-popup');
     const overlay = this.shadowRoot.querySelector('.popup-overlay');
-
+    
+    console.log('popup element:', popup);
+    console.log('overlay element:', overlay);
+    
     if (popup && overlay) {
       this.isPopupShown = true;
       overlay.style.display = 'flex';
-
+      console.log('Popup should now be visible');
+      
+      // Animate popup in
       setTimeout(() => {
         overlay.classList.add('show');
         popup.classList.add('show');
@@ -81,14 +100,16 @@ class ExitIntentPopup extends HTMLElement {
   hidePopup() {
     const popup = this.shadowRoot.querySelector('.exit-popup');
     const overlay = this.shadowRoot.querySelector('.popup-overlay');
-
+    
     if (popup && overlay) {
       overlay.classList.remove('show');
       popup.classList.remove('show');
-
+      
       setTimeout(() => {
         overlay.style.display = 'none';
         this.isPopupShown = false;
+        // Reset trigger so popup can be shown again
+        this.exitIntentTriggered = false;
       }, 300);
     }
   }
@@ -96,36 +117,18 @@ class ExitIntentPopup extends HTMLElement {
   handleButtonClick() {
     const buttonLink = this.getAttribute('button-link') || '#';
     if (buttonLink && buttonLink !== '#' && buttonLink.trim() !== '') {
-      try {
-        window.open(buttonLink, '_blank');
-      } catch (error) {
-        // console.error('Error opening link:', error);
-      }
+      window.open(buttonLink, '_blank');
     }
     this.hidePopup();
   }
 
-  handleClick(event) {
-    const target = event.target;
-
-    if (target.classList.contains('popup-overlay')) {
-      this.hidePopup();
-    } else if (target.classList.contains('close-btn')) {
-      this.hidePopup();
-    } else if (target.classList.contains('cta-button')) {
-      this.handleButtonClick();
-    }
-  }
-
   render() {
-    // Remove existing click handler to prevent duplicates
-    this.removeClickHandler();
-
     const popupHeading = this.getAttribute('popup-heading') || 'Wait! Don\'t Leave Yet!';
     const popupSubheading = this.getAttribute('popup-subheading') || 'Special Offer Just For You';
     const popupDescription = this.getAttribute('popup-description') || 'Get an exclusive discount before you go!';
     const couponCode = this.getAttribute('coupon-code') || 'SAVE20';
     const buttonText = this.getAttribute('button-text') || 'Claim Offer';
+    const buttonLink = this.getAttribute('button-link') || '#';
     const backgroundColor = this.getAttribute('background-color') || '#ffffff';
     const textColor = this.getAttribute('text-color') || '#333333';
     const buttonColor = this.getAttribute('button-color') || '#ff6b6b';
@@ -252,7 +255,7 @@ class ExitIntentPopup extends HTMLElement {
         }
 
         .coupon-code {
-          font font-size: 24px;
+          font-size: 24px;
           font-weight: bold;
           letter-spacing: 2px;
           font-family: 'Courier New', monospace;
@@ -289,38 +292,65 @@ class ExitIntentPopup extends HTMLElement {
             padding: 30px 20px;
             margin: 20px;
           }
-
+          
           .popup-heading {
             font-size: 24px;
           }
-
+          
           .popup-subheading {
             font-size: 16px;
           }
-
+          
           .coupon-code {
             font-size: 20px;
           }
         }
       </style>
-
+      
       <div class="popup-overlay">
         <div class="exit-popup">
-          <button class="close-btn">×</button>
+          <button class="close-btn">&times;</button>
+          
           <div class="popup-heading">${popupHeading}</div>
           <div class="popup-subheading">${popupSubheading}</div>
           <div class="popup-description">${popupDescription}</div>
+          
           <div class="coupon-section">
             <div class="coupon-label">Use Code:</div>
             <div class="coupon-code">${couponCode}</div>
           </div>
-          <button class="cta-button">${buttonText}</button>
+          
+          <button class="cta-button">
+            ${buttonText}
+          </button>
         </div>
       </div>
     `;
 
-    // Add delegated click handler
-    this.shadowRoot.addEventListener('click', this.clickHandler);
+    // Use event delegation on the shadow root
+    this.shadowRoot.addEventListener('click', (event) => {
+      console.log('Click detected on:', event.target);
+      console.log('Target classes:', event.target.classList);
+      
+      if (event.target.classList.contains('close-btn')) {
+        console.log('Close button clicked');
+        this.hidePopup();
+      } else if (event.target.classList.contains('cta-button')) {
+        console.log('CTA button clicked');
+        this.handleButtonClick();
+      } else if (event.target.classList.contains('popup-overlay')) {
+        console.log('Overlay clicked');
+        this.hidePopup();
+      }
+    });
+    
+    // Verify elements were created
+    setTimeout(() => {
+      const overlay = this.shadowRoot.querySelector('.popup-overlay');
+      const closeBtn = this.shadowRoot.querySelector('.close-btn');
+      const ctaButton = this.shadowRoot.querySelector('.cta-button');
+      console.log('Elements created - overlay:', !!overlay, 'closeBtn:', !!closeBtn, 'ctaButton:', !!ctaButton);
+    }, 0);
   }
 }
 
