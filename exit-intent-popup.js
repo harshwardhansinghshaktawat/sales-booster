@@ -289,9 +289,9 @@ class ExitIntentPopup extends HTMLElement {
         }
       </style>
       
-      <div class="popup-overlay" onclick="event.target === this && this.getRootNode().host.hidePopup()">
+      <div class="popup-overlay">
         <div class="exit-popup">
-          <button class="close-btn" onclick="this.getRootNode().host.hidePopup()">&times;</button>
+          <button class="close-btn">&times;</button>
           
           <div class="popup-heading">${popupHeading}</div>
           <div class="popup-subheading">${popupSubheading}</div>
@@ -302,12 +302,44 @@ class ExitIntentPopup extends HTMLElement {
             <div class="coupon-code">${couponCode}</div>
           </div>
           
-          <button class="cta-button" onclick="this.getRootNode().host.handleButtonClick()">
+          <button class="cta-button">
             ${buttonText}
           </button>
         </div>
       </div>
     `;
+
+    // Add event listeners after DOM is created
+    this.setupPopupEventListeners();
+  }
+
+  setupEventListeners() {
+    // Wait for next tick to ensure DOM is ready
+    setTimeout(() => {
+      const overlay = this.shadowRoot.querySelector('.popup-overlay');
+      const closeBtn = this.shadowRoot.querySelector('.close-btn');
+      const ctaButton = this.shadowRoot.querySelector('.cta-button');
+
+      if (overlay) {
+        overlay.addEventListener('click', (event) => {
+          if (event.target === overlay) {
+            this.hidePopup();
+          }
+        });
+      }
+
+      if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+          this.hidePopup();
+        });
+      }
+
+      if (ctaButton) {
+        ctaButton.addEventListener('click', () => {
+          this.handleButtonClick();
+        });
+      }
+    }, 10);
   }
 }
 
