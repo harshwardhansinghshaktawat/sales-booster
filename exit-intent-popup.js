@@ -11,7 +11,7 @@ class ExitIntentPopup extends HTMLElement {
   static get observedAttributes() {
     return [
       'popup-heading', 'popup-subheading', 'popup-description', 'coupon-code',
-      'button-text', 'button-link', 'background-color', 'text-color',
+      'button-text', 'button-link', 'background-color', 'text-color', 
       'button-color', 'popup-width', 'popup-height', 'overlay-opacity'
     ];
   }
@@ -19,11 +19,13 @@ class ExitIntentPopup extends HTMLElement {
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue !== newValue) {
       this.render();
+      this.bindPopupEvents();  // Re-bind events after re-render
     }
   }
 
   connectedCallback() {
     this.render();
+    this.bindPopupEvents();
     this.setupExitIntentDetection();
   }
 
@@ -32,16 +34,13 @@ class ExitIntentPopup extends HTMLElement {
   }
 
   setupExitIntentDetection() {
-    // Detect when mouse leaves the top of the viewport (exit intent)
     this.mouseLeaveHandler = (event) => {
-      // Check if mouse is leaving through the top of the viewport
       if (event.clientY <= 0 && !this.exitIntentTriggered) {
         this.exitIntentTriggered = true;
         this.showPopup();
       }
     };
 
-    // Additional detection for fast mouse movement towards top
     this.mouseMoveHandler = (event) => {
       if (event.clientY <= 50 && event.movementY < -10 && !this.exitIntentTriggered) {
         this.exitIntentTriggered = true;
@@ -72,7 +71,6 @@ class ExitIntentPopup extends HTMLElement {
       this.isPopupShown = true;
       overlay.style.display = 'flex';
 
-      // Animate popup in
       setTimeout(() => {
         overlay.classList.add('show');
         popup.classList.add('show');
@@ -106,6 +104,24 @@ class ExitIntentPopup extends HTMLElement {
   handleOverlayClick(event) {
     if (event.target.classList.contains('popup-overlay')) {
       this.hidePopup();
+    }
+  }
+
+  bindPopupEvents() {
+    const overlay = this.shadowRoot.querySelector('.popup-overlay');
+    const closeBtn = this.shadowRoot.querySelector('.close-btn');
+    const ctaButton = this.shadowRoot.querySelector('.cta-button');
+
+    if (overlay) {
+      overlay.addEventListener('click', (event) => this.handleOverlayClick(event));
+    }
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => this.hidePopup());
+    }
+
+    if (ctaButton) {
+      ctaButton.addEventListener('click', () => this.handleButtonClick());
     }
   }
 
@@ -279,15 +295,15 @@ class ExitIntentPopup extends HTMLElement {
             padding: 30px 20px;
             margin: 20px;
           }
-
+          
           .popup-heading {
             font-size: 24px;
           }
-
+          
           .popup-subheading {
             font-size: 16px;
           }
-
+          
           .coupon-code {
             font-size: 20px;
           }
@@ -297,39 +313,22 @@ class ExitIntentPopup extends HTMLElement {
       <div class="popup-overlay">
         <div class="exit-popup">
           <button class="close-btn">&times;</button>
-
+          
           <div class="popup-heading">${popupHeading}</div>
           <div class="popup-subheading">${popupSubheading}</div>
           <div class="popup-description">${popupDescription}</div>
-
+          
           <div class="coupon-section">
             <div class="coupon-label">Use Code:</div>
             <div class="coupon-code">${couponCode}</div>
           </div>
-
+          
           <button class="cta-button">
             ${buttonText}
           </button>
         </div>
       </div>
     `;
-
-    // Add event listeners immediately after setting innerHTML
-    const overlay = this.shadowRoot.querySelector('.popup-overlay');
-    const closeBtn = this.shadowRoot.querySelector('.close-btn');
-    const ctaButton = this.shadowRoot.querySelector('.cta-button');
-
-    if (overlay) {
-      overlay.addEventListener('click', (event) => this.handleOverlayClick(event));
-    }
-
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => this.hidePopup());
-    }
-
-    if (ctaButton) {
-      ctaButton.addEventListener('click', () => this.handleButtonClick());
-    }
   }
 }
 
